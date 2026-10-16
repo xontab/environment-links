@@ -32,10 +32,10 @@ let rows = [];
 let sel = { row: 0, col: 0 };
 let wantCol = 0; // the environment column to return to after passing a shorter row, e.g. Settings
 
-function item(node, activate) {
+function item(node, activate, url = "") {
   node.addEventListener("click", (e) => { e.preventDefault(); activate(e); });
   node.addEventListener("auxclick", (e) => { if (e.button === 1) { e.preventDefault(); activate(e); } });
-  return { node, activate };
+  return { node, activate, url };
 }
 
 function select(row, col) {
@@ -43,9 +43,17 @@ function select(row, col) {
   sel.row = Math.max(0, Math.min(row, rows.length - 1));
   sel.col = Math.max(0, Math.min(col, rows[sel.row].length - 1));
   rows.flat().forEach(({ node }) => node.classList.remove("selected"));
-  const { node } = rows[sel.row][sel.col];
+  list.querySelectorAll("li.selected-row").forEach((li) => {
+    li.classList.remove("selected-row");
+    li.querySelector(".target")?.replaceChildren();
+  });
+  const { node, url } = rows[sel.row][sel.col];
   node.classList.add("selected");
-  node.scrollIntoView({ block: "nearest" });
+  // Highlight the whole row and spell out where Enter will go.
+  const li = node.closest("li");
+  li.classList.add("selected-row");
+  if (url) li.querySelector(".target")?.replaceChildren("Enter opens ", el("span", { className: "url" }, displayUrl(url)));
+  li.scrollIntoView({ block: "nearest" });
 }
 
 function render() {
@@ -70,14 +78,16 @@ function render() {
           title: r.missing.length ? `${displayUrl(r.url)}\nMissing: ${r.missing.join(", ")}` : displayUrl(r.url),
           className: r.missing.length ? "warn" : "",
         }, r.env.name),
-        (e) => open(r.url, e)
+        (e) => open(r.url, e),
+        r.url
       )
     );
     rows.push(chips);
     list.append(
       el("li", {},
         el("div", { className: "link-name" }, el("span", { className: "key" }, link.key, link.source ? el("span", { className: "tag", title: `Shared from ${link.source}` }, "shared") : ""), el("small", { title: link.template }, link.template)),
-        el("div", { className: "envs" }, ...chips.map((c) => c.node))
+        el("div", { className: "envs" }, ...chips.map((c) => c.node)),
+        el("div", { className: "target", "aria-live": "polite" })
       )
     );
   }

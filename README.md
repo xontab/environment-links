@@ -67,7 +67,7 @@ Then click reload on the extension in `chrome://extensions`.
 
 - **Variables**: a grid with one row per environment and one column per variable, so it grows downwards as you add environments. The **Default** row applies to any environment that leaves its cell blank, so `DOMAIN` only has to be set once.
 - **Links**: a name (what you type) and a template such as `backoffice.{{ENVIRONMENT}}.{{DOMAIN}}`. `https://` is added when no scheme is given. Expand a link to preview each environment's URL and to override it for one environment, e.g. production as `backoffice.{{DOMAIN}}`.
-- **Import / export**: **Export to file** saves your settings as a JSON file (without access tokens). Load it back with **Import from file**, or paste its JSON into the box and click **Import from text**.
+- **Import / Export**: **Export to file** saves your settings as a JSON file (without access tokens). Load it back with **Import from file**, or paste its JSON into the box and click **Import from text**.
 
 ## Share links with your team
 
