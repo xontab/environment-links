@@ -118,3 +118,30 @@ table.grid { border-collapse: collapse; width: 100%; }
   .env-row { grid-template-columns: 1fr; }
   .env-row .preview { grid-column: 1; }
 }
+
+.tag {
+  display: inline-block; font: 600 10px/1.6 system-ui, sans-serif; text-transform: uppercase; letter-spacing: .04em;
+  color: var(--accent); border: 1px solid var(--accent); border-radius: 4px; padding: 0 5px; white-space: nowrap;
+}
+h3 { font-size: 14px; margin: 16px 0 8px; }
+input[readonly] { background: var(--code-bg); }
+.link.shared .key-text { font-weight: 600; display: flex; gap: 6px; align-items: center; }
+.link.shared .template-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+.link.shadowed { opacity: .6; }
+
+.source { border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; }
+.source-head { display: flex; justify-content: space-between; gap: 8px; align-items: center; flex-wrap: wrap; }
+.source-head .actions { margin-top: 0; }
+.source .repo { font-weight: 600; color: var(--text); }
+.source-status { margin: 6px 0; font-size: 13px; }
+.source-status .warn { color: var(--danger); }
+.source .token input { flex: 1; min-width: 200px; }
+.add-source { display: grid; grid-template-columns: 1fr 160px 220px auto; gap: 8px; margin-top: 8px; }
+.share-builder { margin-top: 16px; }
+.share-builder summary { cursor: pointer; font-weight: 600; }
+.share-builder > * + * { margin-top: 8px; }
+.share-links { display: grid; gap: 2px; max-height: 220px; overflow-y: auto; }
+.share-links .mono { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 640px) {
+  .add-source { grid-template-columns: 1fr; }
+}

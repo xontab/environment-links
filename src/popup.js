@@ -1,6 +1,6 @@
 import { DEFAULT_CONFIG, normalizeConfig, search, displayUrl } from "./core.js";
+import { loadEffectiveConfig } from "./shared.js";
 
-const STORAGE_KEY = "config";
 const list = document.querySelector("#list");
 const filter = document.querySelector("#filter");
 let config = normalizeConfig(DEFAULT_CONFIG);
@@ -76,7 +76,7 @@ function render() {
     rows.push(chips);
     list.append(
       el("li", {},
-        el("div", { className: "link-name" }, el("span", { className: "key" }, link.key), el("small", { title: link.template }, link.template)),
+        el("div", { className: "link-name" }, el("span", { className: "key" }, link.key, link.source ? el("span", { className: "tag", title: `Shared from ${link.source}` }, "shared") : ""), el("small", { title: link.template }, link.template)),
         el("div", { className: "envs" }, ...chips.map((c) => c.node))
       )
     );
@@ -117,7 +117,6 @@ filter.addEventListener("keydown", (e) => {
 });
 
 (async () => {
-  const stored = await chrome.storage.sync.get(STORAGE_KEY);
-  config = normalizeConfig(stored[STORAGE_KEY] || DEFAULT_CONFIG);
+  config = await loadEffectiveConfig();
   render();
 })();

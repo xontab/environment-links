@@ -4,7 +4,7 @@ body.popup { width: 400px; max-height: 580px; padding: 10px; overflow-y: auto; }
 #list li { padding: 8px 6px; border-top: 1px solid var(--border); }
 #list li:first-child { border-top: 0; }
 .link-name { font-weight: 600; margin-bottom: 6px; display: flex; justify-content: space-between; gap: 8px; }
-.link-name .key { flex: none; white-space: nowrap; }
+.link-name .key { flex: none; white-space: nowrap; display: flex; gap: 6px; align-items: center; }
 .link-name small { color: var(--muted); font-weight: 400; font: 11px ui-monospace, SFMono-Regular, Menlo, monospace;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .envs { display: flex; flex-wrap: wrap; gap: 6px; }

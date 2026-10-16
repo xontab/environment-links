@@ -42,6 +42,33 @@
         <div class="actions"><button id="add-link" type="button">+ Link</button></div>
       </div>
       <div id="links"></div>
+      <div id="shared-links"></div>
+    </section>
+
+    <section id="sharing">
+      <h2>Shared links</h2>
+      <p class="muted">Pull links from a JSON file in a GitHub repository so your team keeps one list. The file can also set
+        environments and variables. Anything you set yourself wins: your own links, names and values are used over the shared ones.
+        Shared files are synced when Chrome starts, every hour, and when you click <em>Sync now</em>.</p>
+      <div id="sources"></div>
+      <form id="add-source" class="add-source">
+        <input id="source-location" class="mono" required
+          placeholder="acme/team-links, or a link to the file on github.com" aria-label="GitHub repository or file link">
+        <input id="source-branch" class="mono" placeholder="branch (default)" aria-label="Branch">
+        <input id="source-path" class="mono" placeholder="environment-links.json" aria-label="Path to the file">
+        <button type="submit" class="primary">Add</button>
+      </form>
+
+      <details class="share-builder">
+        <summary>Create a shared file from your links</summary>
+        <p class="muted">Pick the links to share, then commit the JSON below as <code>environment-links.json</code> in a GitHub
+          repository your team can read. Anyone who adds that repository above gets these links.</p>
+        <div id="share-links" class="share-links"></div>
+        <label class="inline"><input id="share-values" type="checkbox" checked>
+          Include the environments and variable values these links use</label>
+        <textarea id="share-json" rows="10" readonly spellcheck="false" aria-label="Shared file JSON"></textarea>
+        <div class="actions"><button id="share-copy" type="button">Copy</button></div>
+      </details>
     </section>
 
     <section>
@@ -59,11 +86,13 @@
 
     <section>
       <h2>Import / export</h2>
-      <p class="muted">Share your setup with teammates as JSON.</p>
-      <textarea id="json" rows="10" spellcheck="false" aria-label="Configuration JSON"></textarea>
+      <p class="muted">Save your setup as a JSON file, then import it from the file or by pasting its JSON below. Access tokens are never included.</p>
+      <textarea id="json" rows="10" spellcheck="false" aria-label="Configuration JSON to import"
+        placeholder="Paste exported JSON here to import it"></textarea>
       <div class="actions">
-        <button id="export" type="button">Show current config</button>
-        <button id="copy" type="button">Copy</button>
+        <button id="export" type="button">Export to file</button>
+        <button id="import-file" type="button">Import from file</button>
+        <input id="import-file-input" type="file" accept=".json,application/json" hidden>
         <button id="import" type="button" class="primary">Import from text</button>
         <button id="reset" type="button" class="danger">Reset to example</button>
       </div>

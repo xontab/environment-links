@@ -55,3 +55,93 @@ test("normalizeConfig collects variable names from values", () => {
   assert.equal(cfg.environments[0].id, "dev");
   assert.deepEqual(parseQuery("  x  y "), { term: "x", envFilters: ["y"], path: "" });
 });
+
+// ---- Shared links -------------------------------------------------------------------------
+
+import { resolveConfig, parseSharedFile, parseGitHubLocation, buildSharedFile, normalizeSource } from "../src/core.js";
+
+const team = parseSharedFile(JSON.stringify({
+  globals: { DOMAIN: "team.io", REGION: "eu" },
+  environments: [
+    { id: "dev", name: "Dev (team)", variables: { DOMAIN: "dev.team.io" } },
+    { id: "qa", name: "QA", variables: { ENVIRONMENT: "qa" } },
+  ],
+  links: [
+    { key: "grafana", template: "grafana.{{ENVIRONMENT}}.{{DOMAIN}}" },
+    { key: "backoffice", template: "team-backoffice.{{DOMAIN}}" },
+  ],
+}));
+const layer = (data, repo = "acme/links") => ({ source: normalizeSource({ repo }), data });
+
+test("shared links are added after your own, and your own win on name clashes", () => {
+  const eff = resolveConfig(config, [layer(team)]);
+  assert.deepEqual(eff.links.map((l) => `${l.key}${l.source ? "@" + l.source : ""}`), ["backoffice", "grafana@acme/links"]);
+  assert.equal(eff.sharedLinks.find((l) => l.key === "backoffice").shadowed, true);
+});
+
+test("variable precedence: shared default < own default < shared env < own env", () => {
+  const eff = resolveConfig(config, [layer(team)]);
+  const env = (id) => eff.environments.find((e) => e.id === id);
+  assert.equal(env("staging").variables.DOMAIN, "example.com"); // own default beats shared default
+  assert.equal(env("staging").variables.REGION, "eu"); // only the shared default has it
+  assert.equal(env("dev").variables.DOMAIN, "dev.team.io"); // shared env value beats own default
+  assert.equal(env("dev").name, "DEV"); // own name wins
+  assert.equal(env("qa").source, "acme/links"); // environment only in the shared file is added
+  assert.deepEqual(eff.environments.map((e) => e.id), ["dev", "staging", "preprod", "production", "qa"]);
+
+  const own = normalizeConfig({ ...config, environments: [{ id: "dev", name: "DEV", variables: { DOMAIN: "mine.dev" } }] });
+  assert.equal(resolveConfig(own, [layer(team)]).environments[0].variables.DOMAIN, "mine.dev");
+  assert.equal(resolveConfig(own, [layer(team)]).environments[0].inherited.DOMAIN, "dev.team.io");
+});
+
+test("shared links render through search like any other", () => {
+  const eff = resolveConfig(config, [layer(team)]);
+  assert.deepEqual(search("graf qa", eff).map((r) => r.url), ["https://grafana.qa.example.com"]); // own default DOMAIN wins
+});
+
+test("earlier sources win over later ones", () => {
+  const other = parseSharedFile(JSON.stringify({ links: [{ key: "grafana", template: "other.io" }] }));
+  const eff = resolveConfig(config, [layer(team), layer(other, "other/links")]);
+  assert.equal(eff.links.find((l) => l.key === "grafana").source, "acme/links");
+  assert.equal(resolveConfig(config, [layer(null)]).links.length, 1); // never synced yet
+});
+
+test("parseSharedFile rejects bad files", () => {
+  assert.throws(() => parseSharedFile("{nope"), /valid JSON/);
+  assert.throws(() => parseSharedFile("[]"), /JSON object/);
+  assert.throws(() => parseSharedFile("{}"), /no "links"/);
+});
+
+test("parseGitHubLocation accepts short names, repo URLs and file links", () => {
+  assert.deepEqual(parseGitHubLocation("acme/team-links"), { repo: "acme/team-links" });
+  assert.deepEqual(parseGitHubLocation("https://github.com/acme/team-links.git"), { repo: "acme/team-links" });
+  assert.deepEqual(parseGitHubLocation("https://github.com/acme/team-links/blob/main/cfg/links.json"),
+    { repo: "acme/team-links", branch: "main", path: "cfg/links.json" });
+  assert.equal(parseGitHubLocation("https://gitlab.com/acme/x"), null);
+  assert.equal(parseGitHubLocation("not a repo"), null);
+});
+
+test("buildSharedFile exports only the chosen links and the variables they use", () => {
+  const cfg = normalizeConfig({
+    ...DEFAULT_CONFIG,
+    globals: { DOMAIN: "example.com", SECRET_HOST: "me.local" },
+    links: [...DEFAULT_CONFIG.links, { key: "mine", template: "{{SECRET_HOST}}/x" }],
+  });
+  const file = buildSharedFile(cfg, ["backoffice"]);
+  assert.deepEqual(file.links.map((l) => l.key), ["backoffice"]);
+  assert.deepEqual(file.globals, { DOMAIN: "example.com" });
+  assert.deepEqual(file.variableNames, ["ENVIRONMENT", "DOMAIN"]);
+  assert.equal(file.environments[0].variables.ENVIRONMENT, "dev");
+  assert.deepEqual(Object.keys(buildSharedFile(cfg, ["backoffice"], { includeValues: false })), ["links"]);
+  // Round trip: the exported file is a valid shared file.
+  assert.equal(parseSharedFile(JSON.stringify(file)).links[0].template, "backoffice.{{ENVIRONMENT}}.{{DOMAIN}}");
+});
+
+test("a saved environment order applies to own and shared environments alike", () => {
+  const ordered = normalizeConfig({ ...config, environmentOrder: ["qa", "production", "dev"] });
+  const ids = resolveConfig(ordered, [layer(team)]).environments.map((e) => e.id);
+  // Listed ids first, in that order; the rest keep their usual place after them.
+  assert.deepEqual(ids, ["qa", "production", "dev", "staging", "preprod"]);
+  assert.deepEqual(search("back", resolveConfig(ordered, [layer(team)])).map((r) => r.env.id).slice(0, 2), ["qa", "production"]);
+  assert.deepEqual(normalizeConfig({ environmentOrder: ["a", "a", 3] }).environmentOrder, ["a", "3"]);
+});

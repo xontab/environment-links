@@ -1,18 +1,33 @@
-import { DEFAULT_CONFIG, normalizeConfig, search, describe } from "./core.js";
+import { DEFAULT_CONFIG, search, describe } from "./core.js";
+import { CONFIG_KEY, loadEffectiveConfig, syncAll } from "./shared.js";
 
-const STORAGE_KEY = "config";
 const MAX_SUGGESTIONS = 9;
+const SYNC_ALARM = "sync-shared-links";
+const SYNC_EVERY_MINUTES = 60;
 
-async function loadConfig() {
-  const stored = await chrome.storage.sync.get(STORAGE_KEY);
-  return normalizeConfig(stored[STORAGE_KEY] || DEFAULT_CONFIG);
+const loadConfig = loadEffectiveConfig;
+
+function scheduleSync() {
+  chrome.alarms.create(SYNC_ALARM, { periodInMinutes: SYNC_EVERY_MINUTES });
 }
 
 chrome.runtime.onInstalled.addListener(async ({ reason }) => {
+  scheduleSync();
+  syncAll();
   if (reason !== "install") return;
-  const stored = await chrome.storage.sync.get(STORAGE_KEY);
-  if (!stored[STORAGE_KEY]) await chrome.storage.sync.set({ [STORAGE_KEY]: DEFAULT_CONFIG });
+  const stored = await chrome.storage.sync.get(CONFIG_KEY);
+  if (!stored[CONFIG_KEY]) await chrome.storage.sync.set({ [CONFIG_KEY]: DEFAULT_CONFIG });
   chrome.runtime.openOptionsPage();
+});
+
+// Shared files are refreshed when Chrome starts and every hour after that.
+chrome.runtime.onStartup.addListener(() => {
+  scheduleSync();
+  syncAll();
+});
+
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === SYNC_ALARM) syncAll();
 });
 
 chrome.omnibox.onInputStarted.addListener(() => {

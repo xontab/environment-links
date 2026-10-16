@@ -1,6 +1,6 @@
 Jump to the same page in dev, staging, preprod or production straight from the address bar.
 
-If you work across several environments, you know the routine: find the right bookmark, or type the URL and change "dev" to "staging" by hand. Environment Links replaces that with one shortcut. Type e, a space and the name of a link, and every environment's version of it appears in the address bar's suggestions. Pick one and press Enter.
+If you work across several environments, you know the routine: find the right bookmark, or type the URL and change "dev" to "staging" by hand. Environment Links replaces that with one shortcut. Type e, a space and the name of a link, and every environment's version of it appears in the address bar's suggestions. Pick one and press Enter. Your team can share one set of links through a GitHub repository, so everyone has the same links without setting them up by hand.
 
 HOW IT WORKS
 
@@ -32,6 +32,10 @@ Then set the variables for each environment in a single grid, with one row per e
 
 When one environment doesn't follow the pattern (production often drops the environment name, for example), override that link's URL for that environment only. The settings page shows a live preview of every link in every environment and flags any variable you haven't set.
 
+SHARE LINKS WITH YOUR TEAM
+
+Keep your team's links in a JSON file in a GitHub repository, and everyone who adds that repository gets the same links, environments and variables. Shared files refresh when Chrome starts and every hour. Anything you set yourself still wins: your own links, names and values are used over the shared ones, and you can copy a shared link to customise it. Private repositories work with a read-only GitHub access token, which stays on your computer. The settings page builds the file for you from the links you pick.
+
 FEATURES
 
 • Works from the address bar, or from a link list on the toolbar button
@@ -41,13 +45,14 @@ FEATURES
 • Filter by environment and append a path as you type
 • Live previews that flag missing variables
 • Choose whether Enter opens the current tab, a new tab or a background tab
-• Import and export your setup as JSON to share it with your team
+• Share a set of links with your team through a GitHub repository
+• Import and export your setup as JSON
 • Settings sync across your computers through your Chrome profile
 • Light and dark mode
 
 PRIVACY
 
-Environment Links doesn't collect, send or share any data. Your environments, variables and links are stored in Chrome's own sync storage, and the extension makes no network requests. It only asks for the "storage" permission, to save your settings.
+Environment Links doesn't collect, sell or share any data, and has no servers of its own. Your environments, variables and links are stored in Chrome's own sync storage. The only network requests it makes are to GitHub, to read shared files you've chosen to add, and it only asks for GitHub access when you add one.
 
 GETTING STARTED
 

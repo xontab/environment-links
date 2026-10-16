@@ -36,9 +36,43 @@ SEED = {
          "overrides": {"production": "api.{{DOMAIN}}/swagger"}},
     ],
 }
-STUB = ("<script>const mem={config:%s};window.chrome={runtime:{getManifest:()=>({omnibox:{keyword:'e'}})},"
-        "storage:{sync:{get:async k=>({[k]:mem[k]}),set:async o=>Object.assign(mem,o)},onChanged:{addListener(){}}}};"
-        "addEventListener('load',()=>setTimeout(()=>document.querySelector('.toggle')?.click(),100));</script>") % json.dumps(SEED)
+# Pages opened with ?shared also get a synced shared file from GitHub (for the sharing screenshot).
+SHARED_SOURCE = {"id": "acme-platform-links", "repo": "acme/platform-links", "branch": "main",
+                 "path": "environment-links.json"}
+SHARED_FILE = {
+    "variableNames": ["ENVIRONMENT", "DOMAIN"],
+    "globals": {},
+    "environments": [{"id": "qa", "name": "QA", "variables": {"ENVIRONMENT": "qa"}}],
+    "links": [
+        {"key": "argocd", "template": "argocd.{{ENVIRONMENT}}.{{DOMAIN}}", "overrides": {"production": "argocd.{{DOMAIN}}"}},
+        {"key": "kibana", "template": "kibana.{{ENVIRONMENT}}.{{DOMAIN}}", "overrides": {"production": "kibana.{{DOMAIN}}"}},
+        {"key": "sentry", "template": "sentry.{{DOMAIN}}/{{ENVIRONMENT}}", "overrides": {}},
+    ],
+}
+STUB = """<script>
+const shared = location.search.includes("shared");
+const sync = { config: %(seed)s };
+const local = {};
+if (shared) {
+  sync.config.sources = [%(source)s];
+  local.shared = { "%(id)s": { data: %(file)s, etag: '"v1"', syncedAt: Date.now() - 6 * 60000, error: null } };
+}
+const area = (store) => ({ get: async (k) => ({ [k]: structuredClone(store[k]) }), set: async (o) => Object.assign(store, o) });
+window.chrome = {
+  runtime: { getManifest: () => ({ omnibox: { keyword: "e" } }) },
+  permissions: { contains: async () => true, request: async () => true },
+  storage: { sync: area(sync), local: area(local), onChanged: { addListener() {} } },
+};
+addEventListener("load", () => setTimeout(() => {
+  const target = location.hash && document.querySelector(location.hash);
+  if (target) {
+    target.style.scrollMarginTop = `${document.querySelector(".top").offsetHeight + 12}px`; // clear the sticky header
+    target.scrollIntoView();
+  }
+  else document.querySelector(".toggle")?.click();
+}, 150));
+</script>""" % {"seed": json.dumps(SEED), "source": json.dumps(SHARED_SOURCE), "id": SHARED_SOURCE["id"],
+               "file": json.dumps(SHARED_FILE)}
 for page in ("options.html", "popup.html"):
     path = SITE / page
     path.write_text(path.read_text().replace('<script type="module"', STUB + '<script type="module"'))
@@ -117,7 +151,7 @@ for size, pad in ((16, 0), (32, 0), (48, 2), (128, 16)):
 shoot(icon_page(128, 16), ROOT / "store" / "store-icon-128.png", 128, 128)
 
 css = (SRC / "common.css").read_text()
-for name in ("promo-small", "promo-marquee", "screenshot-1", "screenshot-2", "screenshot-3", "screenshot-4"):
+for name in ("promo-small", "promo-marquee", "screenshot-1", "screenshot-2", "screenshot-3", "screenshot-4", "screenshot-5"):
     src = SRC / f"{name}.html"
     if not src.exists():
         continue
