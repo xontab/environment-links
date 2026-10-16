@@ -18,6 +18,8 @@ Upload `environment-links.zip`. It contains only `manifest.json`, `src/` and `ic
 | Summary | From the manifest: "Jump from the address bar to the same link across every environment." (69 of 132 characters) |
 | Category | Developer Tools |
 | Language | English |
+| Homepage URL | https://xontab.com/ |
+| Support URL | https://github.com/xontab/environment-links/issues |
 | Store icon | [`store-icon-128.png`](store-icon-128.png): 128×128, 96px artwork with 16px transparent padding |
 | Screenshots | [`screenshot-1.png`](screenshot-1.png), [`screenshot-2.png`](screenshot-2.png), [`screenshot-4.png`](screenshot-4.png), [`screenshot-3.png`](screenshot-3.png), [`screenshot-5.png`](screenshot-5.png): 1280×800, in that order (5 is the store maximum) |
 | Small promo tile | [`promo-small.png`](promo-small.png): 440×280 |

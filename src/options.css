@@ -158,3 +158,10 @@ input[readonly] { background: var(--code-bg); }
 .tutorial .steps li::marker { font-weight: 600; color: var(--accent); }
 .tutorial a { color: var(--accent); }
 section[id] { scroll-margin-top: 110px; }
+
+.site-footer {
+  max-width: 1200px; margin: 0 auto; padding: 4px 16px 32px;
+  display: flex; flex-wrap: wrap; gap: 8px; justify-content: center;
+  color: var(--muted); font-size: 13px;
+}
+.site-footer a { color: var(--accent); }
