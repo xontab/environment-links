@@ -10,7 +10,7 @@
   },
   "type": "module",
   "scripts": {
-    "test": "node --test test/",
+    "test": "node --test test/*.test.js",
     "package": "zip -r environment-links.zip manifest.json src icons -x '*.DS_Store'",
     "keyword": "node scripts/set-keyword.js",
     "crx": "scripts/pack-crx.sh",
