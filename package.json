@@ -1,6 +1,13 @@
 {
   "name": "environment-links-extension",
   "private": true,
+  "version": "1.1.0",
+  "description": "Chrome extension that opens the same link in every environment from the address bar.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/xontab/environment-links.git"
+  },
   "type": "module",
   "scripts": {
     "test": "node --test test/",

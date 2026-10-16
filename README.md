@@ -1,6 +1,10 @@
 # Environment Links
 
-A Chrome extension that opens the same link in any of your environments from the address bar.
+A Chrome extension that opens the same link in any of your environments (dev, staging, preprod, production and so on), from the address bar or the toolbar.
+
+![Typing "e backoffice" in the address bar lists the backoffice URL for every environment](store/screenshot-1.png)
+
+You write each link once as a template, such as `backoffice.{{ENVIRONMENT}}.{{DOMAIN}}`, and set the variables for each environment. Then:
 
 ```
 e backoffice
@@ -10,11 +14,24 @@ e backoffice
   PRODUCTION - backoffice.example.com
 ```
 
+## Features
+
+- **Address bar:** type `e`, a space and a link name to get it in every environment, filter by environment, or append a path.
+- **Toolbar list:** every link with a button per environment, with a filter box and arrow-key navigation.
+- **One template per link:** variables per environment, a Default row for shared values, and per-environment overrides.
+- **Team sharing:** pull a shared set of links, environments and variables from a JSON file in a GitHub repository. Your own settings still win.
+- **Portable:** settings sync through your Chrome profile, and you can export and import them as a JSON file.
+- **Private:** no analytics and no servers. The only network requests go to GitHub, for shared files you add.
+
 ## Install
 
+```bash
+git clone https://github.com/xontab/environment-links.git
+```
+
 1. Open `chrome://extensions` and turn on **Developer mode**.
-2. Click **Load unpacked** and pick this folder.
-3. The settings page opens with an example setup.
+2. Click **Load unpacked** and pick the cloned `environment-links` folder.
+3. The settings page opens with an example setup and a short tutorial.
 
 ## Use
 
@@ -85,18 +102,36 @@ Settings live in `chrome.storage.sync`, so they follow your Chrome profile acros
 
 ## Develop
 
+There are no dependencies to install. You only need Node.js 20 or later, for the tests and scripts.
+
+Run the unit tests:
+
 ```bash
 npm test
 ```
+
+Build `environment-links.zip` for the Chrome Web Store, or to share for "Load unpacked":
 
 ```bash
 npm run package
 ```
 
+Build a signed `.crx`:
+
 ```bash
 npm run crx
+```
+
+Re-render the icons and store images from `store/source/` (needs Google Chrome):
+
+```bash
+python3 scripts/build-assets.py
 ```
 
 `npm run crx` builds a signed `dist/environment-links.crx`. The signing key lives at `~/.environment-links/environment-links.pem`, outside the project, so it never ends up in the extension. Set `KEY=` to use another path. Back it up: every release must be signed with the same key to keep the extension ID.
 
 `src/core.js` holds the template, search and shared-file merge logic and has no Chrome dependencies. `src/shared.js` fetches shared files from GitHub and caches them, `src/background.js` wires everything to the omnibox and the hourly sync, `src/popup.*` is the toolbar list and `src/options.*` the settings page.
+
+## License
+
+[MIT](LICENSE)
