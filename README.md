@@ -93,4 +93,10 @@ npm test
 npm run package
 ```
 
+```bash
+npm run crx
+```
+
+`npm run crx` builds a signed `dist/environment-links.crx`. The signing key lives at `~/.environment-links/environment-links.pem`, outside the project, so it never ends up in the extension. Set `KEY=` to use another path. Back it up: every release must be signed with the same key to keep the extension ID.
+
 `src/core.js` holds the template, search and shared-file merge logic and has no Chrome dependencies. `src/shared.js` fetches shared files from GitHub and caches them, `src/background.js` wires everything to the omnibox and the hourly sync, `src/popup.*` is the toolbar list and `src/options.*` the settings page.

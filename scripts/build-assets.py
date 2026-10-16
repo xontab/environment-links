@@ -51,6 +51,7 @@ SHARED_FILE = {
 }
 STUB = """<script>
 const shared = location.search.includes("shared");
+try { localStorage.setItem("tutorial-hidden", "1"); } catch {} // keep the tutorial out of the store screenshots
 const sync = { config: %(seed)s };
 const local = {};
 if (shared) {

@@ -568,6 +568,23 @@ $("#share-copy").addEventListener("click", async () => {
   setStatus("Copied to clipboard", "ok");
 });
 
+// ---- Tutorial ---------------------------------------------------------------
+
+// Open until dismissed; remembered per browser. Storage can be unavailable, so it's best effort.
+const TUTORIAL_KEY = "tutorial-hidden";
+try {
+  if (localStorage.getItem(TUTORIAL_KEY) === "1") $("#tutorial").open = false;
+} catch {}
+$("#tutorial").addEventListener("toggle", (e) => {
+  try {
+    localStorage.setItem(TUTORIAL_KEY, e.target.open ? "0" : "1");
+  } catch {}
+});
+$("#tutorial-done").addEventListener("click", () => {
+  $("#tutorial").open = false;
+  $("#tutorial").scrollIntoView({ block: "nearest" });
+});
+
 // ---- Wiring ---------------------------------------------------------------
 
 function render() {

@@ -17,7 +17,42 @@
   </header>
 
   <main>
-    <section>
+    <details id="tutorial" class="tutorial" open>
+      <summary>How to use Environment Links</summary>
+      <ol class="steps">
+        <li>
+          <h3>Set up your environments</h3>
+          <p>In <a href="#vars-section">Variables</a>, each row is an environment and each column a variable. Give each environment
+            its own values, e.g. <code>ENVIRONMENT</code> = <code>dev</code> for DEV. Put values every environment shares, like
+            <code>DOMAIN</code>, in the <em>Default</em> row.</p>
+        </li>
+        <li>
+          <h3>Add a link</h3>
+          <p>In <a href="#links-section">Links</a>, give it a short name and a URL template that uses your variables, e.g.
+            <code>backoffice</code> → <code>backoffice.{{ENVIRONMENT}}.{{DOMAIN}}</code>. Expand it with ▸ to check the URL for
+            every environment, or to type a different URL for one of them.</p>
+        </li>
+        <li>
+          <h3>Open it from the address bar</h3>
+          <p>Type <kbd class="keyword">e</kbd>, press <kbd>Space</kbd>, then the link name: <code>backoffice</code>. Pick an
+            environment with <kbd>↑</kbd> <kbd>↓</kbd> and press <kbd>Enter</kbd>. Add environment names to narrow the list
+            (<code>backoffice prod</code>) or a path to land on a page (<code>backoffice stag /users</code>).</p>
+        </li>
+        <li>
+          <h3>Or use the toolbar button</h3>
+          <p>Click the extension's icon for every link with a button per environment. Type to filter, use the arrow keys to
+            choose, and press <kbd>Enter</kbd>. Can't see the icon? Click Chrome's puzzle-piece icon and pin Environment Links.</p>
+        </li>
+        <li>
+          <h3>Share with your team <span class="muted">(optional)</span></h3>
+          <p>Commit a links file to a GitHub repository, then add it in <a href="#sharing">Shared links</a>. Everyone who adds
+            it gets the same links, and anything you set yourself still wins.</p>
+        </li>
+      </ol>
+      <div class="actions"><button id="tutorial-done" type="button">Got it, hide this</button></div>
+    </details>
+
+    <section id="vars-section">
       <div class="section-head">
         <div>
           <h2>Variables</h2>
@@ -32,7 +67,7 @@
       <div class="table-wrap"><table id="vars" class="grid"></table></div>
     </section>
 
-    <section>
+    <section id="links-section">
       <div class="section-head">
         <div>
           <h2>Links</h2>
