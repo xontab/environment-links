@@ -11,6 +11,25 @@ function el(tag, props = {}, ...children) {
   return node;
 }
 
+// A magnifying glass with a cross: nothing found. Static markup, so innerHTML is safe here.
+const NO_RESULTS_ICON = `<svg viewBox="0 0 48 48" width="40" height="40" aria-hidden="true" fill="none"
+  stroke="currentColor" stroke-width="3" stroke-linecap="round">
+  <circle cx="21" cy="21" r="13"/><path d="M31 31l10 10"/><path d="M16 16l10 10M26 16 16 26"/></svg>`;
+
+function emptyState(query) {
+  const icon = el("span", { className: "empty-icon" });
+  icon.innerHTML = NO_RESULTS_ICON;
+  const [title, hint] = !config.links.length
+    ? ["No links yet", "Add your first link in Settings."]
+    : ["No matching links", "Try another name, or check the environment you typed."];
+  return el("li", { className: "empty-state" },
+    icon,
+    el("strong", {}, title),
+    query && config.links.length ? el("span", { className: "query" }, `Nothing matches “${query}”`) : "",
+    el("span", { className: "hint" }, hint)
+  );
+}
+
 /** Plain click follows the "open in" setting; Cmd/Ctrl/middle-click opens in the background, Shift in a new tab. */
 async function open(url, event) {
   let target = config.openIn;
@@ -67,7 +86,7 @@ function render() {
   rows = [];
   list.replaceChildren();
   if (!byLink.size) {
-    list.append(el("li", { className: "empty" }, config.links.length ? "No matching links." : "No links yet. Add some in settings."));
+    list.append(emptyState(filter.value.trim()));
   }
 
   for (const [link, envs] of byLink) {
