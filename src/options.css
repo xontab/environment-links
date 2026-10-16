@@ -100,7 +100,15 @@ table.grid { border-collapse: collapse; width: 100%; }
 
 .link { border: 1px solid var(--border); border-radius: 8px; margin-bottom: 8px; }
 .link-row { display: grid; grid-template-columns: 28px minmax(100px, 180px) 1fr auto; gap: 8px; align-items: center; padding: 8px; }
-.link-row .toggle { padding: 2px 0; border: 0; background: none; color: var(--muted); width: 28px; }
+.link-row .toggle {
+  display: grid; place-items: center; width: 28px; height: 28px; padding: 0;
+  border: 0; border-radius: 6px; background: none; color: var(--muted);
+}
+.link-row .toggle:hover { background: var(--code-bg); color: var(--text); }
+.link-row .toggle[aria-expanded="true"] { color: var(--accent); }
+.link-row .toggle svg { transition: transform .15s ease; }
+.link-row .toggle[aria-expanded="true"] svg { transform: rotate(90deg); }
+@media (prefers-reduced-motion: reduce) { .link-row .toggle svg { transition: none; } }
 .link-details { border-top: 1px solid var(--border); padding: 8px 8px 8px 44px; display: none; }
 .link.open .link-details { display: block; }
 .env-row { display: grid; grid-template-columns: minmax(80px, 120px) 1fr; gap: 4px 12px; align-items: center; margin-bottom: 8px; }
@@ -174,3 +182,12 @@ h1, h2 { display: flex; align-items: center; gap: 8px; }
 .h-logo { flex: none; border-radius: 6px; }
 .h-icon { flex: none; color: var(--accent); }
 summary .h-icon { vertical-align: -3px; margin-right: 6px; }
+
+/* Info note: a tinted callout with an (i) icon */
+.info {
+  display: flex; gap: 8px; align-items: flex-start; margin: 8px 0 0; padding: 8px 12px;
+  border-radius: 8px; font-size: 13px; color: var(--text);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+}
+.info-icon { flex: none; color: var(--accent); margin-top: 1px; }

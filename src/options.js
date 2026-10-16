@@ -271,15 +271,23 @@ function previewRow(env, ref, input) {
   );
 }
 
+// A chevron that points right when closed; CSS rotates it down when the row is open.
+const CHEVRON = `<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor"
+  stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>`;
+
 function toggleButton(key) {
   const isOpen = openLinks.has(key);
-  return el("button", {
-    type: "button", class: "toggle", title: "Preview and overrides", "aria-expanded": String(isOpen),
+  const button = el("button", {
+    type: "button", class: "toggle", "aria-expanded": String(isOpen),
+    title: isOpen ? "Hide preview and overrides" : "Show preview and overrides",
+    "aria-label": isOpen ? "Hide preview and overrides" : "Show preview and overrides",
     onclick: () => {
       if (openLinks.has(key)) openLinks.delete(key); else openLinks.add(key);
       renderLinks();
     },
-  }, isOpen ? "▾" : "▸");
+  });
+  button.innerHTML = CHEVRON; // static markup
+  return button;
 }
 
 function renderLinks() {

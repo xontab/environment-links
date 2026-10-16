@@ -13,6 +13,7 @@
     "test": "node --test test/",
     "package": "zip -r environment-links.zip manifest.json src icons -x '*.DS_Store'",
     "keyword": "node scripts/set-keyword.js",
-    "crx": "scripts/pack-crx.sh"
+    "crx": "scripts/pack-crx.sh",
+    "bump": "node scripts/bump-version.js"
   }
 }

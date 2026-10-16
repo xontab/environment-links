@@ -118,6 +118,12 @@ Build `environment-links.zip` for the Chrome Web Store, or to share for "Load un
 npm run package
 ```
 
+Bump the version (`patch`, `minor`, `major` or an exact `x.y.z`) in `manifest.json` and `package.json` together:
+
+```bash
+npm run bump -- patch
+```
+
 Build a signed `.crx`:
 
 ```bash

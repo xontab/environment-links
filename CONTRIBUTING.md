@@ -65,7 +65,16 @@ This renders the icons and every image in `store/` from `store/source/` with hea
 
 ## Releases and signing
 
-- Bump `version` in `manifest.json` (and `package.json`) for every store upload.
+- Bump the version for every store upload, following [semantic versioning](https://semver.org). The command updates `manifest.json` and `package.json` together and doesn't commit:
+
+  ```bash
+  npm run bump -- patch
+  ```
+
+  - **patch** (1.1.0 → 1.1.1): fixes and small visual changes.
+  - **minor** (1.1.0 → 1.2.0): new features that keep existing settings and shared files working.
+  - **major** (1.1.0 → 2.0.0): anything that breaks saved settings, exported or shared files, or the address-bar shortcut, or that adds a permission users must approve again.
+  - You can also give an exact version (`npm run bump -- 1.4.0`). It must be higher than the current one, because the store rejects anything else, and it can't have a suffix like `-beta`, because Chrome only accepts numbers.
 - `npm run package` builds the zip for the store.
 - `npm run crx` builds a signed `.crx` with the key at `~/.environment-links/environment-links.pem`. **Never put a `.pem` inside the project.** Chrome warns about it and would ship it inside the extension. `.gitignore` excludes `*.pem`, `*.crx` and `dist/` as a backstop.
 - The key fixes the extension ID (`moojonbkkhlihbdeffiojklpkiingpnm`). Every `.crx` release has to use the same key.
