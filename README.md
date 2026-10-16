@@ -142,4 +142,4 @@ python3 scripts/build-assets.py
 
 ## License
 
-[MIT](LICENSE). Made by [xonTAB](https://xontab.com/).
+[MIT](LICENSE). Made with ❤️ by [xonTAB](https://xontab.com/).

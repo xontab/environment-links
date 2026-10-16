@@ -76,5 +76,57 @@ This renders the icons and every image in `store/` from `store/source/` with hea
   - **major** (1.1.0 → 2.0.0): anything that breaks saved settings, exported or shared files, or the address-bar shortcut, or that adds a permission users must approve again.
   - You can also give an exact version (`npm run bump -- 1.4.0`). It must be higher than the current one, because the store rejects anything else, and it can't have a suffix like `-beta`, because Chrome only accepts numbers.
 - `npm run package` builds the zip for the store.
+- Pushing a new version to `main` publishes it (see below), so only bump when you mean to release.
 - `npm run crx` builds a signed `.crx` with the key at `~/.environment-links/environment-links.pem`. **Never put a `.pem` inside the project.** Chrome warns about it and would ship it inside the extension. `.gitignore` excludes `*.pem`, `*.crx` and `dist/` as a backstop.
 - The key fixes the extension ID (`moojonbkkhlihbdeffiojklpkiingpnm`). Every `.crx` release has to use the same key.
+
+## Publishing from GitHub
+
+[`.github/workflows/publish.yml`](.github/workflows/publish.yml) publishes automatically. When `manifest.json` changes on `main` and there's no `v<version>` tag yet, it:
+
+1. runs the tests and checks that `manifest.json` and `package.json` have the same version
+2. builds the zip
+3. uploads it to the Chrome Web Store and submits it for review
+4. tags the commit `v<version>` and creates a GitHub release with the zip attached
+
+The store publishes the version once review passes, with the item's existing visibility. You can also run the workflow from the **Actions** tab, and untick **Submit for review** to upload only. The upload and publish logic is in [`scripts/publish-chrome-web-store.sh`](scripts/publish-chrome-web-store.sh), which uses Chrome Web Store API v2.
+
+A release looks like this:
+
+```bash
+npm run bump -- minor
+git commit -am "Release 1.2.0"
+git push
+```
+
+### One-time setup
+
+1. **Publish the first version by hand.** Upload the zip in the [Developer Dashboard](https://chrome.google.com/webstore/devconsole) and fill in the Store listing and Privacy tabs from `store/LISTING.md`. The API can only update an item that already exists, and Google requires 2-step verification on the account. Then tag that version so the workflow doesn't try to publish it again:
+
+   ```bash
+   git tag v1.1.0
+   git push origin v1.1.0
+   ```
+2. **Note two IDs.** The **publisher ID** is under Publisher > Settings, and the **extension ID** is on the item's page.
+3. **Create OAuth credentials** in the [Google Cloud Console](https://console.cloud.google.com/):
+   - Enable the **Chrome Web Store API**.
+   - Configure the OAuth consent screen, then **publish the app to "In production"**. While it's in "Testing", Google expires refresh tokens after 7 days and the workflow starts failing.
+   - Create an OAuth client of type **Web application**, with `https://developers.google.com/oauthplayground` as an authorised redirect URI.
+4. **Get a refresh token** in the [OAuth 2.0 Playground](https://developers.google.com/oauthplayground):
+   - Under the settings gear, choose "Use your own OAuth credentials" and enter the client ID and secret.
+   - Authorise the scope `https://www.googleapis.com/auth/chromewebstore`, signed in as the account that owns the item.
+   - Exchange the code for tokens and copy the refresh token.
+5. **Add them to the GitHub repository** under Settings > Secrets and variables > Actions:
+
+   | Kind | Name | Value |
+   | --- | --- | --- |
+   | Variable | `CWS_PUBLISHER_ID` | the publisher ID |
+   | Variable | `CWS_EXTENSION_ID` | the extension ID |
+   | Secret | `CWS_CLIENT_ID` | the OAuth client ID |
+   | Secret | `CWS_CLIENT_SECRET` | the OAuth client secret |
+   | Secret | `CWS_REFRESH_TOKEN` | the refresh token |
+
+6. **Optional:** the job runs in the `chrome-web-store` environment. Add required reviewers to it (Settings > Environments) if you want to approve each release before it's submitted.
+
+If a run fails, the error in the log says why: an expired token, a version that isn't higher than the store's, or a failed review check. Fix it, then re-run the workflow. Nothing is tagged until the submission succeeds, so a re-run tries again.
+

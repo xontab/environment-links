@@ -1,0 +1,93 @@
+# Publishes to the Chrome Web Store when the version in manifest.json changes on main.
+#
+# A version counts as new when there's no git tag "v<version>" yet, so pushes that
+# don't bump the version, and re-runs after a successful publish, do nothing.
+# After submitting, it tags the commit and creates a GitHub release with the zip.
+#
+# Setup (once): see CONTRIBUTING.md, "Publishing from GitHub".
+name: Publish to Chrome Web Store
+
+on:
+  push:
+    branches: [main]
+    paths: [manifest.json]
+  workflow_dispatch:
+    inputs:
+      submit:
+        description: Submit for review after uploading (otherwise upload only)
+        type: boolean
+        default: true
+
+concurrency:
+  group: chrome-web-store
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Check for a new version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      new: ${{ steps.version.outputs.new }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: version
+        run: |
+          version="$(jq -r .version manifest.json)"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          if git ls-remote --exit-code --tags origin "refs/tags/v$version" >/dev/null; then
+            echo "new=false" >> "$GITHUB_OUTPUT"
+            echo "v$version is already tagged, so there's nothing to publish." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "new=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  publish:
+    name: Publish v${{ needs.check.outputs.version }}
+    needs: check
+    if: needs.check.outputs.new == 'true'
+    runs-on: ubuntu-latest
+    # Add required reviewers to this environment in the repository settings to approve each release.
+    environment: chrome-web-store
+    permissions:
+      contents: write # tag and release
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Test
+        run: npm test
+
+      - name: Check versions match
+        run: |
+          manifest="$(jq -r .version manifest.json)"
+          package="$(jq -r .version package.json)"
+          [ "$manifest" = "$package" ] || { echo "::error::manifest.json is $manifest but package.json is $package. Use npm run bump."; exit 1; }
+
+      - name: Build package
+        run: npm run package
+
+      - name: Upload and submit
+        env:
+          CWS_PUBLISHER_ID: ${{ vars.CWS_PUBLISHER_ID }}
+          CWS_EXTENSION_ID: ${{ vars.CWS_EXTENSION_ID }}
+          CWS_CLIENT_ID: ${{ secrets.CWS_CLIENT_ID }}
+          CWS_CLIENT_SECRET: ${{ secrets.CWS_CLIENT_SECRET }}
+          CWS_REFRESH_TOKEN: ${{ secrets.CWS_REFRESH_TOKEN }}
+          CWS_PUBLISH: ${{ github.event_name == 'push' || inputs.submit }}
+        run: scripts/publish-chrome-web-store.sh environment-links.zip
+
+      - name: Tag and release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.check.outputs.version }}
+        run: |
+          gh release create "v$VERSION" environment-links.zip \
+            --target "$GITHUB_SHA" --title "v$VERSION" --generate-notes
+          echo "Submitted v$VERSION to the Chrome Web Store and created release v$VERSION." >> "$GITHUB_STEP_SUMMARY"
