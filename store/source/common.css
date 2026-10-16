@@ -1,0 +1,25 @@
+* { box-sizing: border-box; margin: 0; }
+html, body { width: 100%; height: 100%; }
+body { font-family: -apple-system, "Segoe UI", system-ui, sans-serif; color: #fff; overflow: hidden;
+  background: radial-gradient(circle at 15% 10%, #4f7dff 0, transparent 55%), linear-gradient(135deg, #2f5fe0, #3a2fb8 70%, #2a1f8f); }
+.brand { display: flex; align-items: center; gap: .5em; font-weight: 700; letter-spacing: -.01em; }
+.brand img { width: 1.4em; height: 1.4em; }
+.tag { color: #dbe4ff; font-weight: 500; }
+
+/* stylised address bar + dropdown */
+.bar { background: #fff; color: #1c1f24; border-radius: 22px; box-shadow: 0 24px 60px rgba(10, 10, 60, .35); overflow: hidden; }
+.bar .input { display: flex; align-items: center; gap: 12px; padding: 16px 22px; font-size: 22px; border-bottom: 1px solid #e6e8ee; }
+.chip { display: inline-flex; align-items: center; gap: 8px; background: #e8efff; color: #2453d6; border-radius: 8px; padding: 3px 10px; font-weight: 600; font-size: 18px; }
+.chip img { width: 20px; height: 20px; }
+.caret { width: 2px; height: 26px; background: #2563eb; }
+.row { display: flex; align-items: center; gap: 14px; padding: 13px 22px; font-size: 20px; }
+.row.sel { background: #eef3ff; }
+.row img { width: 22px; height: 22px; opacity: .9; }
+.env { font-weight: 700; min-width: 140px; }
+.url { white-space: nowrap; color: #1a56db; font-family: ui-monospace, Menlo, monospace; font-size: 18px; }
+.dot { width: 12px; height: 12px; border-radius: 50%; flex: none; }
+.d1 { background: #34d399; } .d2 { background: #60a5fa; } .d3 { background: #fbbf24; } .d4 { background: #f87171; }
+
+.shot { padding: 64px 90px; display: flex; flex-direction: column; gap: 44px; }
+.shot h1 { font-size: 46px; letter-spacing: -.02em; }
+.shot p.tag { font-size: 24px; margin-top: 10px; }

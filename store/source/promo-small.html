@@ -1,0 +1,17 @@
+<!--size:440x280--><html><head><style>{{CSS}}
+body { padding: 26px 28px; display: flex; flex-direction: column; justify-content: space-between; }
+.brand { font-size: 28px; }
+.tag { font-size: 17px; margin-top: 8px; }
+.bar { border-radius: 14px; width: 384px; }
+.bar .input { font-size: 15px; padding: 9px 14px; gap: 8px; }
+.chip { font-size: 13px; padding: 2px 7px; } .chip img { width: 14px; height: 14px; }
+.caret { height: 17px; }
+.row { font-size: 13px; padding: 6px 14px; gap: 8px; } .env { min-width: 74px; } .url { font-size: 11px; white-space: nowrap; } .dot { width: 8px; height: 8px; }
+</style></head><body>
+  <div><div class="brand"><img src="{{ICON}}">Environment Links</div><p class="tag">One shortcut. Every environment.</p></div>
+  <div class="bar">
+    <div class="input"><span class="chip"><img src="{{ICON}}">Environment Links</span>backoffice<span class="caret"></span></div>
+      <div class="row sel"><span class="dot d1"></span><span class="env">DEV</span><span class="url">backoffice.dev.example.com</span></div>
+      <div class="row"><span class="dot d2"></span><span class="env">STAGING</span><span class="url">backoffice.staging.example.com</span></div>
+  </div>
+</body></html>

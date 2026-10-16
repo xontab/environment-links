@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Environment Links</title>
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <header class="top">
+    <div>
+      <h1>Environment Links</h1>
+      <p class="muted">In the address bar type <kbd class="keyword">e</kbd> then <kbd>Space</kbd> or <kbd>Tab</kbd>, then a link name, e.g.
+        <code>backoffice</code>, <code>backoffice prod</code> or <code>backoffice stag /users</code>.</p>
+    </div>
+    <span id="status" class="status" role="status"></span>
+  </header>
+
+  <main>
+    <section>
+      <div class="section-head">
+        <div>
+          <h2>Variables</h2>
+          <p class="muted">Each row is an environment and each column a variable. A blank cell uses the value in the <em>Default</em> row.
+            Use them in templates as <code>{{NAME}}</code>.</p>
+        </div>
+        <div class="actions">
+          <button id="add-var" type="button">+ Variable</button>
+          <button id="add-env" type="button">+ Environment</button>
+        </div>
+      </div>
+      <div class="table-wrap"><table id="vars" class="grid"></table></div>
+    </section>
+
+    <section>
+      <div class="section-head">
+        <div>
+          <h2>Links</h2>
+          <p class="muted">The name is what you type after <kbd class="keyword">e</kbd>. Expand a link to preview it, or to override the URL for one environment
+            (e.g. production without the <code>{{ENVIRONMENT}}.</code> part).</p>
+        </div>
+        <div class="actions"><button id="add-link" type="button">+ Link</button></div>
+      </div>
+      <div id="links"></div>
+    </section>
+
+    <section>
+      <h2>Behaviour</h2>
+      <p>Address bar shortcut: <kbd class="keyword">e</kbd></p>
+      <label class="inline">Pressing Enter opens the link in
+        <select id="open-in">
+          <option value="currentTab">the current tab</option>
+          <option value="newForegroundTab">a new tab</option>
+          <option value="newBackgroundTab">a new background tab</option>
+        </select>
+      </label>
+      <p class="muted">Alt+Enter (new tab) still works whatever you pick here.</p>
+    </section>
+
+    <section>
+      <h2>Import / export</h2>
+      <p class="muted">Share your setup with teammates as JSON.</p>
+      <textarea id="json" rows="10" spellcheck="false" aria-label="Configuration JSON"></textarea>
+      <div class="actions">
+        <button id="export" type="button">Show current config</button>
+        <button id="copy" type="button">Copy</button>
+        <button id="import" type="button" class="primary">Import from text</button>
+        <button id="reset" type="button" class="danger">Reset to example</button>
+      </div>
+    </section>
+  </main>
+
+  <script type="module" src="options.js"></script>
+</body>
+</html>

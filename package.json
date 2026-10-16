@@ -1,0 +1,10 @@
+{
+  "name": "environment-links-extension",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test test/",
+    "package": "zip -r environment-links.zip manifest.json src icons -x '*.DS_Store'",
+    "keyword": "node scripts/set-keyword.js"
+  }
+}

@@ -1,0 +1,16 @@
+<!--size:1400x560--><html><head><style>{{CSS}}
+.row .url { font-size: 17px; } .env { min-width: 130px; }
+body { display: grid; grid-template-columns: 1fr 1.1fr; align-items: center; gap: 50px; padding: 0 80px; padding: 0 90px; }
+.brand { font-size: 52px; white-space: nowrap; }
+.tag { font-size: 30px; margin-top: 18px; line-height: 1.35; }
+</style></head><body>
+  <div><div class="brand"><img src="{{ICON}}">Environment Links</div>
+    <p class="tag">Type one name in the address bar.<br>Get it in dev, staging, preprod and production.</p></div>
+  <div class="bar">
+    <div class="input"><span class="chip"><img src="{{ICON}}">Environment Links</span>backoffice<span class="caret"></span></div>
+      <div class="row sel"><span class="dot d1"></span><span class="env">DEV</span><span class="url">backoffice.dev.example.com</span></div>
+      <div class="row"><span class="dot d2"></span><span class="env">STAGING</span><span class="url">backoffice.staging.example.com</span></div>
+      <div class="row"><span class="dot d3"></span><span class="env">PREPROD</span><span class="url">backoffice.preprod.example.com</span></div>
+      <div class="row"><span class="dot d4"></span><span class="env">PRODUCTION</span><span class="url">backoffice.example.com</span></div>
+  </div>
+</body></html>

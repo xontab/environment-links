@@ -1,0 +1,63 @@
+Jump to the same page in dev, staging, preprod or production straight from the address bar.
+
+If you work across several environments, you know the routine: find the right bookmark, or type the URL and change "dev" to "staging" by hand. Environment Links replaces that with one shortcut. Type e, a space and the name of a link, and every environment's version of it appears in the address bar's suggestions. Pick one and press Enter.
+
+HOW IT WORKS
+
+Type e, then Space (or Tab), then a link name:
+
+e backoffice
+  DEV - backoffice.dev.example.com
+  STAGING - backoffice.staging.example.com
+  PREPROD - backoffice.preprod.example.com
+  PRODUCTION - backoffice.example.com
+
+• Press Enter to open the highlighted environment, or use the arrow keys to choose another.
+• Add environment names to narrow the list: "e backoffice prod" shows only production, and "e backoffice dev stag" shows dev and staging.
+• Add a path to go straight to a page: "e backoffice stag /players/123" opens backoffice.staging.example.com/players/123.
+• Type part of a name to search: "e back" finds every link containing "back".
+• Press Alt+Enter to open the link in a new tab.
+
+OR USE THE TOOLBAR BUTTON
+
+Click the extension's icon for a list of all your links, each with a button per environment. Type to filter the list, use the arrow keys to pick a link and environment, and press Enter to open it, or just click any environment. Cmd- or Ctrl-click opens it in a background tab. Settings is the last item in the list.
+
+WRITE EACH URL ONCE
+
+You don't add a URL per environment. You write one template per link, using variables:
+
+backoffice → backoffice.{{ENVIRONMENT}}.{{DOMAIN}}
+
+Then set the variables for each environment in a single grid, with one row per environment: ENVIRONMENT is "dev" for DEV, "staging" for STAGING and so on. A Default row holds values shared by every environment, so a variable like DOMAIN only needs setting once. Add as many variables and environments as you need, with any names you like: REGION, CLUSTER, TENANT, PORT.
+
+When one environment doesn't follow the pattern (production often drops the environment name, for example), override that link's URL for that environment only. The settings page shows a live preview of every link in every environment and flags any variable you haven't set.
+
+FEATURES
+
+• Works from the address bar, or from a link list on the toolbar button
+• One URL template per link, with variables set per environment
+• Shared default values with per-environment overrides
+• Per-link URL overrides for environments that don't fit the pattern
+• Filter by environment and append a path as you type
+• Live previews that flag missing variables
+• Choose whether Enter opens the current tab, a new tab or a background tab
+• Import and export your setup as JSON to share it with your team
+• Settings sync across your computers through your Chrome profile
+• Light and dark mode
+
+PRIVACY
+
+Environment Links doesn't collect, send or share any data. Your environments, variables and links are stored in Chrome's own sync storage, and the extension makes no network requests. It only asks for the "storage" permission, to save your settings.
+
+GETTING STARTED
+
+1. Install the extension. The settings page opens with an example setup.
+2. Set your environments and variables in the grid.
+3. Add your links, each with a name and a URL template.
+4. In the address bar, type e, a space and a link name.
+
+You can reopen the settings at any time from the Settings item in the toolbar button's list.
+
+CHANGING THE SHORTCUT
+
+Chrome sets the address-bar shortcut when an extension is built, and doesn't let an extension change it afterwards, so the store version always uses "e". If you install the extension from its source code instead, you can choose your own shortcut.

@@ -1,0 +1,18 @@
+<!--size:1280x800--><html><head><style>{{CSS}}
+.shot { justify-content: center; gap: 56px; }
+.bar .input { font-size: 28px; padding: 22px 28px; } .chip { font-size: 22px; } .chip img { width: 24px; height: 24px; } .caret { height: 32px; }
+.row { font-size: 26px; padding: 20px 28px; gap: 18px; } .env { min-width: 190px; } .url { font-size: 24px; } .dot { width: 16px; height: 16px; }
+.keys { color: #dbe4ff; font-size: 20px; display: flex; gap: 32px; margin-top: -24px; }
+.keys kbd { font: 600 16px ui-monospace, Menlo, monospace; background: rgba(255,255,255,.15); border-radius: 6px; padding: 3px 8px; margin-right: 6px; }
+</style></head><body class="shot">
+  <div><h1>Every environment, one search away</h1>
+    <p class="tag">Type <b>e</b>, a space and a link name. Pick the environment and go.</p></div>
+  <div class="bar">
+    <div class="input"><span class="chip"><img src="{{ICON}}">Environment Links</span>backoffice<span class="caret"></span></div>
+      <div class="row sel"><span class="dot d1"></span><span class="env">DEV</span><span class="url">backoffice.dev.example.com</span></div>
+      <div class="row"><span class="dot d2"></span><span class="env">STAGING</span><span class="url">backoffice.staging.example.com</span></div>
+      <div class="row"><span class="dot d3"></span><span class="env">PREPROD</span><span class="url">backoffice.preprod.example.com</span></div>
+      <div class="row"><span class="dot d4"></span><span class="env">PRODUCTION</span><span class="url">backoffice.example.com</span></div>
+  </div>
+  <div class="keys"><span><kbd>Enter</kbd>open</span><span><kbd>↑ ↓</kbd>choose environment</span><span><kbd>Alt+Enter</kbd>new tab</span></div>
+</body></html>
