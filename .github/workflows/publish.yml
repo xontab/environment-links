@@ -54,6 +54,7 @@ jobs:
     environment: chrome-web-store
     permissions:
       contents: write # tag and release
+      id-token: write # sign in to Google Cloud with Workload Identity Federation
     steps:
       - uses: actions/checkout@v4
 
@@ -73,13 +74,23 @@ jobs:
       - name: Build package
         run: npm run package
 
+      # No stored secrets: GitHub proves which repository is running, and Google returns a
+      # short-lived token for the service account that's added to the Chrome Web Store publisher.
+      - name: Sign in to Google Cloud
+        id: google
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+          token_format: access_token
+          access_token_scopes: https://www.googleapis.com/auth/chromewebstore
+          access_token_lifetime: 900s
+
       - name: Upload and submit
         env:
           CWS_PUBLISHER_ID: ${{ vars.CWS_PUBLISHER_ID }}
           CWS_EXTENSION_ID: ${{ vars.CWS_EXTENSION_ID }}
-          CWS_CLIENT_ID: ${{ secrets.CWS_CLIENT_ID }}
-          CWS_CLIENT_SECRET: ${{ secrets.CWS_CLIENT_SECRET }}
-          CWS_REFRESH_TOKEN: ${{ secrets.CWS_REFRESH_TOKEN }}
+          CWS_ACCESS_TOKEN: ${{ steps.google.outputs.access_token }}
           CWS_PUBLISH: ${{ github.event_name == 'push' || inputs.submit }}
         run: scripts/publish-chrome-web-store.sh environment-links.zip
 

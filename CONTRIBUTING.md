@@ -89,7 +89,7 @@ This renders the icons and every image in `store/` from `store/source/` with hea
 3. uploads it to the Chrome Web Store and submits it for review
 4. tags the commit `v<version>` and creates a GitHub release with the zip attached
 
-The store publishes the version once review passes, with the item's existing visibility. You can also run the workflow from the **Actions** tab, and untick **Submit for review** to upload only. The upload and publish logic is in [`scripts/publish-chrome-web-store.sh`](scripts/publish-chrome-web-store.sh), which uses Chrome Web Store API v2.
+The store publishes the version once review passes, with the item's existing visibility. You can also run the workflow from the **Actions** tab, and untick **Submit for review** to upload only. The upload and publish logic is in [`scripts/publish-chrome-web-store.sh`](scripts/publish-chrome-web-store.sh), which uses Chrome Web Store API v2 and a service account.
 
 A release looks like this:
 
@@ -108,25 +108,62 @@ git push
    git push origin v1.1.0
    ```
 2. **Note two IDs.** The **publisher ID** is under Publisher > Settings, and the **extension ID** is on the item's page.
-3. **Create OAuth credentials** in the [Google Cloud Console](https://console.cloud.google.com/):
-   - Enable the **Chrome Web Store API**.
-   - Configure the OAuth consent screen, then **publish the app to "In production"**. While it's in "Testing", Google expires refresh tokens after 7 days and the workflow starts failing.
-   - Create an OAuth client of type **Web application**, with `https://developers.google.com/oauthplayground` as an authorised redirect URI.
-4. **Get a refresh token** in the [OAuth 2.0 Playground](https://developers.google.com/oauthplayground):
-   - Under the settings gear, choose "Use your own OAuth credentials" and enter the client ID and secret.
-   - Authorise the scope `https://www.googleapis.com/auth/chromewebstore`, signed in as the account that owns the item.
-   - Exchange the code for tokens and copy the refresh token.
-5. **Add them to the GitHub repository** under Settings > Secrets and variables > Actions:
+3. **Create a service account and let GitHub use it.** GitHub signs in with Workload Identity Federation, so no keys or tokens are stored anywhere. Run these with the [gcloud CLI](https://cloud.google.com/sdk/docs/install), signed in to your Google Cloud project:
 
-   | Kind | Name | Value |
-   | --- | --- | --- |
-   | Variable | `CWS_PUBLISHER_ID` | the publisher ID |
-   | Variable | `CWS_EXTENSION_ID` | the extension ID |
-   | Secret | `CWS_CLIENT_ID` | the OAuth client ID |
-   | Secret | `CWS_CLIENT_SECRET` | the OAuth client secret |
-   | Secret | `CWS_REFRESH_TOKEN` | the refresh token |
+   ```bash
+   PROJECT_ID="your-project-id"
+   REPO="xontab/environment-links"
+   SA="chrome-web-store@${PROJECT_ID}.iam.gserviceaccount.com"
+   PROJECT_NUMBER="$(gcloud projects describe "$PROJECT_ID" --format='value(projectNumber)')"
+
+   gcloud services enable chromewebstore.googleapis.com iamcredentials.googleapis.com sts.googleapis.com --project "$PROJECT_ID"
+
+   gcloud iam service-accounts create chrome-web-store --project "$PROJECT_ID" --display-name "Chrome Web Store publisher"
+
+   gcloud iam workload-identity-pools create github --project "$PROJECT_ID" --location global --display-name "GitHub Actions"
+
+   gcloud iam workload-identity-pools providers create-oidc environment-links \
+     --project "$PROJECT_ID" --location global --workload-identity-pool github \
+     --issuer-uri "https://token.actions.githubusercontent.com" \
+     --attribute-mapping "google.subject=assertion.sub,attribute.repository=assertion.repository" \
+     --attribute-condition "assertion.repository == '${REPO}'"
+
+   gcloud iam service-accounts add-iam-policy-binding "$SA" --project "$PROJECT_ID" \
+     --role roles/iam.workloadIdentityUser \
+     --member "principalSet://iam.googleapis.com/projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/github/attribute.repository/${REPO}"
+   ```
+
+   The attribute condition means only this repository's workflows can use the pool. The service account needs no other roles.
+
+4. **Add the service account to the Chrome Web Store.** In the [Developer Dashboard](https://chrome.google.com/webstore/devconsole), go to **Account** and add the service account's email (`chrome-web-store@<project-id>.iam.gserviceaccount.com`). A publisher can have one service account, and it can only manage that publisher's items.
+
+5. **Add the settings to the GitHub repository** as variables (Settings > Secrets and variables > Actions > Variables). None of them are secret:
+
+   | Name | Value |
+   | --- | --- |
+   | `CWS_PUBLISHER_ID` | the publisher ID |
+   | `CWS_EXTENSION_ID` | the extension ID |
+   | `GCP_SERVICE_ACCOUNT` | `chrome-web-store@<project-id>.iam.gserviceaccount.com` |
+   | `GCP_WORKLOAD_IDENTITY_PROVIDER` | `projects/<project-number>/locations/global/workloadIdentityPools/github/providers/environment-links` |
+
+   Or with the GitHub CLI, using the shell variables from step 3:
+
+   ```bash
+   gh variable set CWS_PUBLISHER_ID --repo "$REPO"
+   gh variable set CWS_EXTENSION_ID --repo "$REPO"
+   gh variable set GCP_SERVICE_ACCOUNT --repo "$REPO" --body "$SA"
+   gh variable set GCP_WORKLOAD_IDENTITY_PROVIDER --repo "$REPO" \
+     --body "projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/github/providers/environment-links"
+   ```
 
 6. **Optional:** the job runs in the `chrome-web-store` environment. Add required reviewers to it (Settings > Environments) if you want to approve each release before it's submitted.
 
-If a run fails, the error in the log says why: an expired token, a version that isn't higher than the store's, or a failed review check. Fix it, then re-run the workflow. Nothing is tagged until the submission succeeds, so a re-run tries again.
+To publish from your own machine instead, get a token for the service account and run the script. Your Google account needs `roles/iam.serviceAccountTokenCreator` on the service account for this:
+
+```bash
+CWS_ACCESS_TOKEN="$(gcloud auth print-access-token --impersonate-service-account="$SA" --scopes=https://www.googleapis.com/auth/chromewebstore)" \
+CWS_PUBLISHER_ID=… CWS_EXTENSION_ID=… scripts/publish-chrome-web-store.sh environment-links.zip
+```
+
+If a run fails, the error in the log says why: the service account isn't added to the publisher, a version that isn't higher than the store's, or a failed review check. Fix it, then re-run the workflow. Nothing is tagged until the submission succeeds, so a re-run tries again.
 

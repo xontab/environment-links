@@ -6,13 +6,16 @@
 # Needs these environment variables (see CONTRIBUTING.md, "Publishing from GitHub"):
 #   CWS_PUBLISHER_ID   Developer Dashboard > Publisher > Settings
 #   CWS_EXTENSION_ID   the item's ID in the store
-#   CWS_CLIENT_ID, CWS_CLIENT_SECRET, CWS_REFRESH_TOKEN   OAuth client and refresh token
+#   CWS_ACCESS_TOKEN   an access token for the service account, with the
+#                      https://www.googleapis.com/auth/chromewebstore scope. In GitHub
+#                      Actions it comes from Workload Identity Federation; locally, from
+#                      gcloud auth print-access-token --impersonate-service-account=…
 # Optional:
 #   CWS_PUBLISH=false  upload only; submit for review from the dashboard yourself
 set -euo pipefail
 
 ZIP="${1:?Usage: $0 <package.zip>}"
-for var in CWS_PUBLISHER_ID CWS_EXTENSION_ID CWS_CLIENT_ID CWS_CLIENT_SECRET CWS_REFRESH_TOKEN; do
+for var in CWS_PUBLISHER_ID CWS_EXTENSION_ID CWS_ACCESS_TOKEN; do
   [ -n "${!var:-}" ] || { echo "Missing $var" >&2; exit 1; }
 done
 [ -f "$ZIP" ] || { echo "No such file: $ZIP" >&2; exit 1; }
@@ -22,19 +25,10 @@ ITEM="publishers/$CWS_PUBLISHER_ID/items/$CWS_EXTENSION_ID"
 
 fail() { echo "::error::$1" >&2; [ -n "${2:-}" ] && echo "$2" >&2; exit 1; }
 
-# 1. Exchange the refresh token for a short-lived access token.
-token_json="$(curl -sS -X POST https://oauth2.googleapis.com/token \
-  --data-urlencode "client_id=$CWS_CLIENT_ID" \
-  --data-urlencode "client_secret=$CWS_CLIENT_SECRET" \
-  --data-urlencode "refresh_token=$CWS_REFRESH_TOKEN" \
-  --data-urlencode "grant_type=refresh_token")"
-ACCESS_TOKEN="$(jq -r '.access_token // empty' <<<"$token_json")"
-[ -n "$ACCESS_TOKEN" ] || fail "Couldn't get an access token. Check the client ID, secret and refresh token." \
-  "$(jq -c '{error, error_description}' <<<"$token_json" 2>/dev/null || true)"
-[ -n "${GITHUB_ACTIONS:-}" ] && echo "::add-mask::$ACCESS_TOKEN"
-auth=(-H "Authorization: Bearer $ACCESS_TOKEN")
+auth=(-H "Authorization: Bearer $CWS_ACCESS_TOKEN")
 
-# 2. Upload the package.
+# 1. Upload the package. A 401/403 here usually means the service account isn't added
+#    to the publisher in the Developer Dashboard, or the token lacks the scope.
 echo "Uploading $ZIP to item $CWS_EXTENSION_ID…"
 upload="$(curl -sS -X POST "${auth[@]}" -H "Content-Type: application/zip" \
   --data-binary "@$ZIP" "$API/upload/v2/$ITEM:upload")"
@@ -47,7 +41,13 @@ for _ in $(seq 1 30); do
   status="$(curl -sS "${auth[@]}" "$API/v2/$ITEM:fetchStatus")"
   state="$(jq -r '.lastAsyncUploadState // empty' <<<"$status")"
 done
-[ "$state" = "SUCCEEDED" ] || fail "Upload didn't succeed (state: ${state:-none})." "$upload"
+if [ "$state" != "SUCCEEDED" ]; then
+  case "$(jq -r '.error.status // empty' <<<"$upload" 2>/dev/null)" in
+    PERMISSION_DENIED|UNAUTHENTICATED)
+      fail "The Chrome Web Store refused the service account. Check it's added under Account in the Developer Dashboard, and that CWS_PUBLISHER_ID and CWS_EXTENSION_ID are right." "$upload" ;;
+  esac
+  fail "Upload didn't succeed (state: ${state:-none})." "$upload"
+fi
 crx_version="$(jq -r '.crxVersion // empty' <<<"$upload")"
 echo "Uploaded${crx_version:+ version $crx_version}."
 
@@ -56,7 +56,7 @@ if [ "${CWS_PUBLISH:-true}" != "true" ]; then
   exit 0
 fi
 
-# 3. Submit for review. The store publishes it once review passes, with the item's existing visibility.
+# 2. Submit for review. The store publishes it once review passes, with the item's existing visibility.
 publish="$(curl -sS -X POST "${auth[@]}" -H "Content-Type: application/json" -d '{}' "$API/v2/$ITEM:publish")"
 pstate="$(jq -r '.state // empty' <<<"$publish")"
 [ -n "$pstate" ] || fail "Publishing failed." "$publish"
