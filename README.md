@@ -102,6 +102,8 @@ Settings live in `chrome.storage.sync`, so they follow your Chrome profile acros
 
 ## Develop
 
+See [CONTRIBUTING.md](CONTRIBUTING.md) for how the code fits together, the store images and releases.
+
 There are no dependencies to install. You only need Node.js 20 or later, for the tests and scripts.
 
 Run the unit tests:
