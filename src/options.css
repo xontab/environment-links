@@ -121,11 +121,14 @@ table.grid { border-collapse: collapse; width: 100%; }
 
 .tag {
   display: inline-block; font: 600 10px/1.6 system-ui, sans-serif; text-transform: uppercase; letter-spacing: .04em;
-  color: var(--accent); border: 1px solid var(--accent); border-radius: 4px; padding: 0 5px; white-space: nowrap;
+  color: var(--accent); border: 1px solid var(--accent); border-radius: 100px; padding: 0 7px; white-space: nowrap;
 }
 h3 { font-size: 14px; margin: 16px 0 8px; }
 input[readonly] { background: var(--code-bg); }
-.link.shared .key-text { font-weight: 600; display: flex; gap: 6px; align-items: center; }
+/* Name and tag flow as text, so the tag follows the last word, or starts the next line
+   flush with the name. The space between them collapses at a line start. */
+.link.shared .key-text { font-weight: 600; line-height: 1.85; padding: 2px 0; }
+.link.shared .key-text .tag { vertical-align: 1px; }
 .link.shared .template-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
 .link.shadowed { opacity: .6; }
 
@@ -165,3 +168,9 @@ section[id] { scroll-margin-top: 110px; }
   color: var(--muted); font-size: 13px;
 }
 .site-footer a { color: var(--accent); }
+
+/* Section icons */
+h1, h2 { display: flex; align-items: center; gap: 8px; }
+.h-logo { flex: none; border-radius: 6px; }
+.h-icon { flex: none; color: var(--accent); }
+summary .h-icon { vertical-align: -3px; margin-right: 6px; }

@@ -17,6 +17,7 @@ ICON_URI = "data:image/svg+xml;base64," + base64.b64encode(ICON.encode()).decode
 # so serve a copy of src/ with a seeded stub from a throwaway local server.
 SITE = pathlib.Path(tempfile.mkdtemp())
 shutil.copytree(ROOT / "src", SITE, dirs_exist_ok=True)
+shutil.copytree(ROOT / "icons", SITE / "icons", dirs_exist_ok=True)  # the pages use ../icons/, which resolves here
 SEED = {
     "openIn": "currentTab",
     "variableNames": ["ENVIRONMENT", "DOMAIN"],
