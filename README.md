@@ -1,5 +1,8 @@
 # Environment Links
 
+[![Available in the Chrome Web Store](https://img.shields.io/badge/Chrome_Web_Store-Add_to_Chrome-4285F4?style=for-the-badge&logo=googlechrome&logoColor=white)](https://chromewebstore.google.com/detail/ggliopecghngikmibollhhljadddnbic)
+[![More apps by xonTAB](https://img.shields.io/badge/More_apps-by_xonTAB-1f6feb?style=for-the-badge)](https://apps.xontab.com/)
+
 A Chrome extension that opens the same link in any of your environments (dev, staging, preprod, production and so on), from the address bar or the toolbar.
 
 ![Typing "e backoffice" in the address bar lists the backoffice URL for every environment](store/screenshot-1.png)
@@ -24,6 +27,10 @@ e backoffice
 - **Private:** no analytics and no servers. The only network requests go to GitHub, for shared files you add.
 
 ## Install
+
+**From the Chrome Web Store:** [add Environment Links to Chrome](https://chromewebstore.google.com/detail/ggliopecghngikmibollhhljadddnbic).
+
+**From source:**
 
 ```bash
 git clone https://github.com/xontab/environment-links.git
@@ -142,4 +149,4 @@ python3 scripts/build-assets.py
 
 ## License
 
-[MIT](LICENSE). Made with ❤️ by [xonTAB](https://xontab.com/).
+[MIT](LICENSE). Made with ❤️ by [xonTAB](https://xontab.com/). See [more apps by xonTAB](https://apps.xontab.com/) and the [privacy policy](PRIVACY.md).

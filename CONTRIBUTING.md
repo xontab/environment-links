@@ -47,7 +47,7 @@ npm test
 
 ## Permissions and the store listing
 
-Adding a permission, a network request or any kind of stored user data changes the Chrome Web Store privacy answers. Update `store/LISTING.md` in the same change, covering the permission justification, data usage and privacy policy, and mention it in the pull request. `store/description.txt` is pasted into the store as plain text, so don't use Markdown in it.
+Adding a permission, a network request or any kind of stored user data changes the Chrome Web Store privacy answers. Update `store/LISTING.md` (permission justification and data usage) and [`PRIVACY.md`](PRIVACY.md) (with a new "Last updated" date) in the same change, and mention it in the pull request. `store/description.txt` is pasted into the store as plain text, so don't use Markdown in it.
 
 ## Store images
 

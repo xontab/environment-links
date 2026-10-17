@@ -47,19 +47,13 @@ Upload `environment-links.zip`. It contains only `manifest.json`, `src/` and `ic
 
 **Data usage:** tick **Authentication information** only. A user can paste a GitHub access token for a private repository; it's stored on their device and sent only to api.github.com to read the file they chose. Nothing else is collected: the extension doesn't read pages, history or browsing activity. Then tick all three certifications.
 
-**Privacy policy URL:** needed now that a data type is declared. Host the text below (for example as a GitHub gist or a page in the repo) and paste its link.
+**Privacy policy URL:** needed because a data type is declared. The policy is [`PRIVACY.md`](../PRIVACY.md) in this repository. Use its GitHub page, which renders it as a formatted page:
 
-> **Environment Links privacy policy**
->
-> Environment Links does not collect, sell or share personal data, and it has no servers of its own.
->
-> The environments, variables and links you configure are saved with Chrome's storage API in your Chrome profile, and synced between your computers by Chrome sync if you have it turned on.
->
-> If you subscribe to a shared links file, the extension requests that file from api.github.com (GitHub's API) when Chrome starts, once an hour, and when you click "Sync now". GitHub receives these requests under its own privacy statement. A copy of the file is kept on your device.
->
-> If you enter a GitHub access token for a private repository, it is stored only on your device (it is not synced or included in exports) and is sent only to api.github.com to read the file you chose. Removing the shared file or clicking "Forget token" deletes it.
->
-> The extension does not read the pages you visit or your browsing history, and it does not use analytics.
+```
+https://github.com/xontab/environment-links/blob/main/PRIVACY.md
+```
+
+The raw file works too, but shows as plain Markdown text: `https://raw.githubusercontent.com/xontab/environment-links/main/PRIVACY.md`. When the extension's data handling changes, update `PRIVACY.md` and its "Last updated" date in the same change.
 
 ## Rebuilding the images
 

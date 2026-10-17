@@ -593,6 +593,33 @@ $("#tutorial-done").addEventListener("click", () => {
   $("#tutorial").scrollIntoView({ block: "nearest" });
 });
 
+// ---- Footer ---------------------------------------------------------------
+
+const STORE_URL = "https://chromewebstore.google.com/detail/ggliopecghngikmibollhhljadddnbic";
+
+// Use the system share sheet where Chrome has one; otherwise copy the store link.
+$("#share").addEventListener("click", async () => {
+  const data = {
+    title: "Environment Links",
+    text: "Open the same link in every environment from Chrome's address bar.",
+    url: STORE_URL,
+  };
+  try {
+    if (navigator.share && navigator.canShare?.(data)) {
+      await navigator.share(data);
+      return;
+    }
+  } catch (err) {
+    if (err.name === "AbortError") return; // the user closed the share sheet
+  }
+  try {
+    await navigator.clipboard.writeText(STORE_URL);
+    setStatus("Chrome Web Store link copied", "ok");
+  } catch {
+    setStatus(`Share this link: ${STORE_URL}`, "ok");
+  }
+});
+
 // ---- Wiring ---------------------------------------------------------------
 
 function render() {
