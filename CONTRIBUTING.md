@@ -47,7 +47,7 @@ npm test
 
 ## Permissions and the store listing
 
-Adding a permission, a network request or any kind of stored user data changes the Chrome Web Store privacy answers. Update `store/LISTING.md` (permission justification and data usage) and [`PRIVACY.md`](PRIVACY.md) (with a new "Last updated" date) in the same change, and mention it in the pull request. `store/description.txt` is pasted into the store as plain text, so don't use Markdown in it.
+Adding a permission, a network request or any kind of stored user data changes the Chrome Web Store privacy answers. Update `store/PRIVACY-PRACTICES.md` (permission justifications and data usage) and [`PRIVACY.md`](PRIVACY.md) (with a new "Last updated" date) in the same change, and mention it in the pull request. `store/description.txt` is pasted into the store as plain text, so don't use Markdown in it.
 
 ## Store images
 
@@ -58,7 +58,7 @@ python3 scripts/build-assets.py
 This renders the icons and every image in `store/` from `store/source/` with headless Google Chrome:
 
 - The settings page and popup screenshots use the real pages, run against a fake `chrome` API with sample data from the script. Add `?shared` to the page URL for a synced shared file (screenshot 5), or `#id` to scroll to a section.
-- The tutorial is forced closed so it doesn't cover the screenshots.
+- The tutorial is forced closed so it doesn't cover the screenshots. (With an empty setup it opens anyway, but the sample data isn't empty.)
 - Headless Chrome won't make a window narrower than about 500px, so small images are rendered larger and cropped by the script.
 - The popup is 400px wide. Frame it at exactly that width or the screenshot gets a blank strip.
 - The store allows at most 5 screenshots, at 1280×800.

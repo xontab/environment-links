@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Environment Links",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Jump from the address bar to the same link across every environment.",
   "homepage_url": "https://github.com/xontab/environment-links",
   "omnibox": {

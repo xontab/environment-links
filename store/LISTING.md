@@ -27,25 +27,7 @@ Upload `environment-links.zip`. It contains only `manifest.json`, `src/` and `ic
 
 ## Privacy practices tab
 
-**Single purpose**
-
-> Lets the user open a configured link in one of several environments (such as dev, staging and production), either by typing a short keyword in the address bar or by picking it from a list in the toolbar popup. Each link is built from a URL template and variables the user sets for each environment. Teams can optionally keep a shared set of these links in a JSON file in a GitHub repository, which the extension reads so everyone gets the same links.
-
-**Permission justification: `storage`**
-
-> Saves the user's environments, variables and link templates, and syncs them across the user's Chrome profile with Chrome sync. Also keeps, on this device only, the last copy of any shared links file the user subscribed to and an optional GitHub access token for private repositories.
-
-**Permission justification: `alarms`**
-
-> Refreshes the shared links files the user has subscribed to once an hour, so changes a team makes in GitHub reach everyone without opening the settings page.
-
-**Permission justification: host permission `https://api.github.com/*`** (optional, requested only when the user adds a shared file)
-
-> Reads the JSON file of shared links that the user chose, from the GitHub repository they entered, using GitHub's contents API. Only that file is requested, only from api.github.com, and nothing is written to GitHub. The permission is optional and Chrome asks the user for it the first time they add a shared file.
-
-**Remote code:** No, I am not using remote code. (The shared file is JSON data, never code.)
-
-**Data usage:** tick **Authentication information** only. A user can paste a GitHub access token for a private repository; it's stored on their device and sent only to api.github.com to read the file they chose. Nothing else is collected: the extension doesn't read pages, history or browsing activity. Then tick all three certifications.
+All the answers (single purpose, permission justifications, remote code, data usage and certifications) are in [`PRIVACY-PRACTICES.md`](PRIVACY-PRACTICES.md).
 
 **Privacy policy URL:** needed because a data type is declared. The policy is [`PRIVACY.md`](../PRIVACY.md) in this repository. Use its GitHub page, which renders it as a formatted page:
 

@@ -38,7 +38,7 @@ git clone https://github.com/xontab/environment-links.git
 
 1. Open `chrome://extensions` and turn on **Developer mode**.
 2. Click **Load unpacked** and pick the cloned `environment-links` folder.
-3. The settings page opens with an example setup and a short tutorial.
+3. The settings page opens with a step-by-step tutorial.
 
 ## Use
 

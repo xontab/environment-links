@@ -1,8 +1,30 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { DEFAULT_CONFIG, normalizeConfig, search, describe, render, parseQuery } from "../src/core.js";
+import { DEFAULT_CONFIG, normalizeConfig, search, describe, render, parseQuery, isEmptyConfig } from "../src/core.js";
 
-const config = normalizeConfig(DEFAULT_CONFIG);
+// A typical setup: four environments, a shared DOMAIN, and one link whose production URL differs.
+const EXAMPLE = {
+  openIn: "currentTab",
+  variableNames: ["ENVIRONMENT", "DOMAIN"],
+  globals: { DOMAIN: "example.com" },
+  environments: [
+    { id: "dev", name: "DEV", variables: { ENVIRONMENT: "dev" } },
+    { id: "staging", name: "STAGING", variables: { ENVIRONMENT: "staging" } },
+    { id: "preprod", name: "PREPROD", variables: { ENVIRONMENT: "preprod" } },
+    { id: "production", name: "PRODUCTION", variables: {} },
+  ],
+  links: [
+    { key: "backoffice", template: "backoffice.{{ENVIRONMENT}}.{{DOMAIN}}", overrides: { production: "backoffice.{{DOMAIN}}" } },
+  ],
+};
+const config = normalizeConfig(EXAMPLE);
+
+test("new installs start empty", () => {
+  const fresh = normalizeConfig(DEFAULT_CONFIG);
+  assert.equal(isEmptyConfig(fresh), true);
+  assert.deepEqual(search("", fresh), []);
+  assert.equal(isEmptyConfig(config), false);
+});
 const urls = (text) => search(text, config).map((r) => `${r.env.name} - ${r.url}`);
 
 test("expands a link across every environment", () => {
@@ -38,7 +60,7 @@ test("environment variables override globals and missing ones are reported", () 
 
 test("exact key matches sort first", () => {
   const cfg = normalizeConfig({
-    ...DEFAULT_CONFIG,
+    ...EXAMPLE,
     links: [{ key: "api-docs", template: "docs.{{DOMAIN}}" }, { key: "api", template: "api.{{DOMAIN}}" }],
   });
   assert.equal(search("api", cfg)[0].link.key, "api");
@@ -123,9 +145,9 @@ test("parseGitHubLocation accepts short names, repo URLs and file links", () => 
 
 test("buildSharedFile exports only the chosen links and the variables they use", () => {
   const cfg = normalizeConfig({
-    ...DEFAULT_CONFIG,
+    ...EXAMPLE,
     globals: { DOMAIN: "example.com", SECRET_HOST: "me.local" },
-    links: [...DEFAULT_CONFIG.links, { key: "mine", template: "{{SECRET_HOST}}/x" }],
+    links: [...EXAMPLE.links, { key: "mine", template: "{{SECRET_HOST}}/x" }],
   });
   const file = buildSharedFile(cfg, ["backoffice"]);
   assert.deepEqual(file.links.map((l) => l.key), ["backoffice"]);

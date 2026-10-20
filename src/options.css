@@ -158,16 +158,130 @@ input[readonly] { background: var(--code-bg); }
 }
 
 .tutorial {
-  background: var(--surface); border: 1px solid var(--accent); border-radius: 10px;
-  padding: 12px 16px; margin-bottom: 16px;
+  background: var(--surface); border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border)); border-radius: 12px;
+  padding: 12px 16px 14px; margin-bottom: 16px;
 }
 .tutorial summary { cursor: pointer; font-weight: 600; font-size: 16px; }
-.tutorial[open] summary { margin-bottom: 4px; }
-.tutorial .steps { margin: 0; padding-left: 22px; display: grid; gap: 10px; }
-.tutorial .steps h3 { margin: 8px 0 2px; font-size: 14px; }
-.tutorial .steps p { margin: 0; color: var(--muted); }
-.tutorial .steps li::marker { font-weight: 600; color: var(--accent); }
+.tutorial[open] summary { margin-bottom: 10px; }
+.tutorial-meta {
+  margin-left: 8px; font-size: 12px; font-weight: 500; color: var(--muted);
+  border: 1px solid var(--border); border-radius: 100px; padding: 1px 8px;
+}
 .tutorial a { color: var(--accent); }
+.welcome { display: none; margin: 0 0 10px; font-weight: 500; }
+.tutorial.is-empty .welcome { display: block; }
+
+/* Carousel: one numbered banner per step, swiped or scrolled sideways, snapping to each one. */
+.tour-track {
+  display: flex; gap: 12px; overflow-x: auto; scroll-snap-type: x mandatory; scroll-behavior: smooth;
+  overscroll-behavior-x: contain; scrollbar-width: none; border-radius: 10px;
+}
+.tour-track::-webkit-scrollbar { display: none; }
+.tour-track:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { .tour-track { scroll-behavior: auto; } }
+.slide {
+  flex: 0 0 100%; scroll-snap-align: start; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  border-radius: 10px; overflow: hidden; border: 1px solid var(--border); background: var(--surface); min-height: 230px;
+}
+.slide-art {
+  display: grid; place-items: center; padding: 20px;
+  background:
+    radial-gradient(circle at 20% 15%, color-mix(in srgb, var(--accent) 28%, transparent), transparent 60%),
+    linear-gradient(135deg, color-mix(in srgb, var(--accent) 16%, var(--surface)), color-mix(in srgb, var(--accent) 6%, var(--surface)));
+}
+.slide-text { padding: 20px 22px; display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+.slide-text h3 { margin: 0; font-size: 17px; }
+.slide-text p { margin: 0; color: var(--muted); }
+.slide-cta { margin-top: auto; }
+.step-num {
+  display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%;
+  background: var(--accent); color: var(--accent-text); font-weight: 700; font-size: 15px;
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 20%, transparent);
+}
+.tour-nav { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
+.tour-arrow { display: grid; place-items: center; width: 32px; height: 32px; padding: 0; border-radius: 50%; }
+.tour-arrow:disabled { opacity: .4; cursor: default; }
+.tour-dots { display: flex; gap: 6px; }
+.tour-dots button {
+  width: 28px; height: 28px; padding: 0; border-radius: 50%; font-size: 12px; font-weight: 600; color: var(--muted);
+}
+.tour-dots button[aria-current="step"] { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+.tour-done { margin-left: auto; }
+
+/* Illustrations: small mock-ups drawn with the page's own colours, so they suit light and dark mode. */
+.mock {
+  width: 100%; max-width: 330px; background: var(--surface); color: var(--text); border-radius: 10px; font-size: 11px;
+  border: 1px solid var(--border); box-shadow: 0 12px 30px color-mix(in srgb, var(--accent) 22%, transparent);
+  overflow: hidden;
+}
+.mock .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10.5px; }
+.mock .ph { color: var(--muted); font-style: italic; }
+.dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; flex: none; }
+.d-dev { background: #34d399; } .d-stg { background: #60a5fa; } .d-prd { background: #f87171; }
+.mg-row { display: grid; grid-template-columns: 1.1fr 1fr 1.1fr; border-top: 1px solid var(--border); }
+.mg-row > span { padding: 6px 8px; display: flex; align-items: center; min-height: 26px; overflow: hidden; white-space: nowrap; }
+.mg-row > span + span { border-left: 1px solid var(--border); }
+.mg-head { border-top: 0; background: var(--code-bg); font-weight: 600; }
+.mg-default { background: color-mix(in srgb, var(--code-bg) 60%, transparent); font-weight: 600; }
+.mock-link { padding: 10px; display: grid; gap: 10px; }
+.ml-fields { display: grid; justify-items: start; gap: 6px; }
+.ml-fields > span { border: 1px solid var(--border); border-radius: 6px; padding: 5px 7px; white-space: nowrap; overflow: hidden; }
+.ml-name { font-weight: 600; }
+.ml-tpl b { color: var(--accent); font-weight: 700; }
+.ml-out { display: grid; gap: 5px; padding-left: 10px; border-left: 2px solid color-mix(in srgb, var(--accent) 50%, transparent); }
+.ml-out > span { display: flex; align-items: center; }
+.ml-out .mono { color: var(--accent); }
+.mo-input { display: flex; align-items: center; gap: 6px; padding: 8px 10px; border-bottom: 1px solid var(--border); font-size: 12px; }
+.mo-chip {
+  display: inline-flex; align-items: center; gap: 4px; padding: 1px 6px; border-radius: 5px; font-weight: 600; font-size: 10px;
+  color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+.caret { width: 1.5px; height: 14px; background: var(--accent); }
+.mo-row { display: flex; align-items: center; gap: 6px; padding: 6px 10px; }
+.mo-row b { min-width: 62px; }
+.mo-row .mono { color: var(--accent); }
+.mo-row.sel, .mt-row.sel { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.mt-bar { display: flex; align-items: center; gap: 8px; padding: 6px 8px; background: var(--code-bg); }
+.mt-url { flex: 1; height: 14px; border-radius: 100px; background: var(--surface); }
+.mt-icons { display: flex; align-items: center; gap: 6px; }
+.mt-icons img { border-radius: 4px; box-shadow: 0 0 0 2px var(--accent); }
+.mt-puzzle { width: 12px; height: 12px; border-radius: 3px; border: 1.5px solid var(--muted); }
+.mt-popup { margin: 6px 8px 8px auto; width: 82%; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.mt-search { margin: 6px; padding: 3px 9px; border: 1px solid var(--border); border-radius: 100px; color: var(--muted); }
+.mt-row { display: grid; gap: 4px; padding: 6px 8px; }
+.chips { display: flex; gap: 4px; }
+.chip { padding: 1px 6px; border: 1px solid var(--border); border-radius: 100px; font-size: 9px; font-weight: 600; }
+.chip.on { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+.mock-share { padding: 14px; display: grid; justify-items: center; gap: 4px; position: relative; }
+.ms-repo { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border: 1px solid var(--border); border-radius: 8px; }
+.ms-repo > span { display: grid; }
+.ms-lines { display: flex; justify-content: center; gap: 46px; height: 22px; width: 70%; }
+.ms-lines i { width: 2px; background: color-mix(in srgb, var(--accent) 55%, transparent); border-radius: 2px; }
+.ms-lines i:first-child { transform: skewX(40deg); } .ms-lines i:last-child { transform: skewX(-40deg); }
+.ms-people { display: flex; gap: 22px; }
+.ms-people span {
+  display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; font-weight: 700; font-size: 10px;
+  background: color-mix(in srgb, var(--accent) 18%, var(--surface)); color: var(--accent); border: 2px solid var(--accent);
+}
+.ms-badge {
+  position: absolute; top: 10px; right: 10px; font-size: 9px; font-weight: 600; color: var(--accent);
+  border: 1px solid var(--accent); border-radius: 100px; padding: 1px 7px;
+}
+
+@media (max-width: 720px) {
+  .slide { grid-template-columns: 1fr; }
+  .slide-art { padding: 16px; }
+  .tour-done { margin-left: 0; }
+  .tour-nav { flex-wrap: wrap; }
+}
+
+/* Empty states in the sections */
+.empty-block {
+  display: flex; align-items: center; gap: 14px; padding: 16px; border: 1px dashed var(--border); border-radius: 10px;
+  color: var(--muted);
+}
+.empty-block svg { flex: none; color: var(--accent); opacity: .8; }
+.empty-block strong { display: block; color: var(--text); margin-bottom: 2px; }
 section[id] { scroll-margin-top: 110px; }
 
 .site-footer {

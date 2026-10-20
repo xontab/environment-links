@@ -1,24 +1,19 @@
 // Pure logic shared by the service worker, the options page and the tests.
 // No chrome.* calls in here.
 
+// New installs start empty; the settings page walks the user through setting up.
 export const DEFAULT_CONFIG = {
   openIn: "currentTab", // currentTab | newForegroundTab | newBackgroundTab
-  variableNames: ["ENVIRONMENT", "DOMAIN"],
-  globals: { DOMAIN: "example.com" },
-  environments: [
-    { id: "dev", name: "DEV", variables: { ENVIRONMENT: "dev" } },
-    { id: "staging", name: "STAGING", variables: { ENVIRONMENT: "staging" } },
-    { id: "preprod", name: "PREPROD", variables: { ENVIRONMENT: "preprod" } },
-    { id: "production", name: "PRODUCTION", variables: {} },
-  ],
-  links: [
-    {
-      key: "backoffice",
-      template: "backoffice.{{ENVIRONMENT}}.{{DOMAIN}}",
-      overrides: { production: "backoffice.{{DOMAIN}}" },
-    },
-  ],
+  variableNames: [],
+  globals: {},
+  environments: [],
+  links: [],
 };
+
+/** True when the user has nothing set up yet, neither their own nor from a shared file. */
+export function isEmptyConfig(config) {
+  return !config.environments.length && !config.links.length && !config.variableNames.length;
+}
 
 const VAR_RE = /\{\{\s*([A-Za-z_][A-Za-z0-9_]*)\s*\}\}/g;
 

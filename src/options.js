@@ -1,6 +1,6 @@
 import {
   DEFAULT_CONFIG, DEFAULT_SHARED_PATH, normalizeConfig, normalizeSource, expandLink, displayUrl, slug,
-  resolveConfig, parseGitHubLocation, buildSharedFile,
+  resolveConfig, parseGitHubLocation, buildSharedFile, isEmptyConfig,
 } from "./core.js";
 import {
   CONFIG_KEY, GITHUB_PERMISSION, loadCache, layersFor, loadTokens, setToken, syncSource, forgetRemovedSources,
@@ -104,9 +104,33 @@ function ownEnvironment(env, create) {
 
 // ---- Variables grid -------------------------------------------------------
 
+const BRACES_ICON = `<svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2"
+  stroke-linecap="round" stroke-linejoin="round"><path d="M8 4H7a2 2 0 0 0-2 2v4l-2 2 2 2v4a2 2 0 0 0 2 2h1"/>
+  <path d="M16 4h1a2 2 0 0 1 2 2v4l2 2-2 2v4a2 2 0 0 1-2 2h-1"/></svg>`;
+const LINK_ICON = `<svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2"
+  stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/>
+  <path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg>`;
+
+/** A dashed placeholder with an icon, a title and a hint. The icons are static markup. */
+function emptyBlock(icon, title, hint) {
+  const art = el("span");
+  art.innerHTML = icon;
+  return el("div", { class: "empty-block" }, art.firstElementChild, el("div", {}, el("strong", {}, title), hint));
+}
+
 function renderVars() {
   const table = $("#vars");
   table.replaceChildren();
+  $("#vars-empty")?.remove();
+  const nothing = !effective.environments.length && !effective.variableNames.length;
+  table.hidden = nothing;
+  if (nothing) {
+    const block = emptyBlock(BRACES_ICON, "No environments yet",
+      "Add one with + Environment, for example DEV. Then add the variables your links need, such as ENVIRONMENT and DOMAIN.");
+    block.id = "vars-empty";
+    table.parentElement.after(block);
+    return;
+  }
   const ownNames = new Set(config.variableNames);
   const sharedNames = sharedVariableNames();
   const sharedIds = sharedEnvironmentIds();
@@ -293,7 +317,10 @@ function toggleButton(key) {
 function renderLinks() {
   const root = $("#links");
   root.replaceChildren();
-  if (!config.links.length) root.append(el("p", { class: "empty" }, "No links of your own yet."));
+  if (!config.links.length) {
+    root.append(emptyBlock(LINK_ICON, "No links of your own yet",
+      "Add one with + Link: a short name, and a URL template with your variables in {{double braces}}."));
+  }
 
   config.links.forEach((link, i) => {
     const isOpen = openLinks.has(link);
@@ -583,7 +610,9 @@ const TUTORIAL_KEY = "tutorial-hidden";
 try {
   if (localStorage.getItem(TUTORIAL_KEY) === "1") $("#tutorial").open = false;
 } catch {}
+let autoOpened = false; // opened because nothing is set up, which shouldn't count as the user's choice
 $("#tutorial").addEventListener("toggle", (e) => {
+  if (autoOpened) { autoOpened = false; return; }
   try {
     localStorage.setItem(TUTORIAL_KEY, e.target.open ? "0" : "1");
   } catch {}
@@ -592,6 +621,71 @@ $("#tutorial-done").addEventListener("click", () => {
   $("#tutorial").open = false;
   $("#tutorial").scrollIntoView({ block: "nearest" });
 });
+
+// The steps are banners in a sideways-scrolling track that snaps to each one. The numbered
+// buttons, arrows and arrow keys move between them, and swiping or scrolling works too.
+const track = $("#tour-track");
+const slides = [...track.querySelectorAll(".slide")];
+let currentSlide = 0;
+
+const goToSlide = (i) => {
+  const index = Math.max(0, Math.min(i, slides.length - 1));
+  track.scrollTo({ left: slides[index].offsetLeft - track.offsetLeft });
+  showSlide(index);
+};
+
+function showSlide(index) {
+  currentSlide = index;
+  $("#tour-prev").disabled = index === 0;
+  $("#tour-next").disabled = index === slides.length - 1;
+  $("#tour-dots").querySelectorAll("button").forEach((dot, i) => {
+    if (i === index) dot.setAttribute("aria-current", "step");
+    else dot.removeAttribute("aria-current");
+  });
+}
+
+$("#tour-dots").append(
+  ...slides.map((slide, i) =>
+    el("button", { type: "button", "aria-label": `Step ${i + 1}: ${slide.querySelector("h3").textContent}`,
+      onclick: () => goToSlide(i) }, String(i + 1))
+  )
+);
+$("#tour-prev").addEventListener("click", () => goToSlide(currentSlide - 1));
+$("#tour-next").addEventListener("click", () => goToSlide(currentSlide + 1));
+track.addEventListener("keydown", (e) => {
+  if (e.key === "ArrowRight") { e.preventDefault(); goToSlide(currentSlide + 1); }
+  if (e.key === "ArrowLeft") { e.preventDefault(); goToSlide(currentSlide - 1); }
+});
+// Keep the numbers in step when the user swipes or scrolls the track themselves. This waits
+// for the scroll to settle, so the numbers don't flicker back while a step animates into view.
+track.addEventListener("scrollend", () => {
+  const index = slides.reduce((best, slide, i) =>
+    Math.abs(slide.offsetLeft - track.offsetLeft - track.scrollLeft) <
+    Math.abs(slides[best].offsetLeft - track.offsetLeft - track.scrollLeft) ? i : best, 0);
+  if (index !== currentSlide) showSlide(index);
+});
+showSlide(0);
+
+// Buttons on the slides jump to the part of the page they describe.
+const slideActions = {
+  "add-env": () => { $("#add-env").click(); $("#vars-section").scrollIntoView({ block: "start" }); },
+  "add-link": () => { $("#add-link").click(); },
+  sharing: () => { $("#sharing").scrollIntoView({ block: "start" }); $("#source-location").focus({ preventScroll: true }); },
+};
+track.addEventListener("click", (e) => {
+  const action = e.target.closest("[data-action]")?.dataset.action;
+  if (action) slideActions[action]?.();
+});
+
+/** With nothing set up yet, the tutorial opens (even if it was hidden before) and says so. */
+function updateTutorial(firstRender) {
+  const empty = isEmptyConfig(effective);
+  $("#tutorial").classList.toggle("is-empty", empty);
+  if (empty && firstRender && !$("#tutorial").open) {
+    autoOpened = true;
+    $("#tutorial").open = true;
+  }
+}
 
 // ---- Footer ---------------------------------------------------------------
 
@@ -622,10 +716,14 @@ $("#share").addEventListener("click", async () => {
 
 // ---- Wiring ---------------------------------------------------------------
 
+let rendered = false;
+
 function render() {
   recompute();
   const keyword = chrome.runtime.getManifest().omnibox?.keyword ?? "";
   document.querySelectorAll(".keyword").forEach((k) => (k.textContent = keyword));
+  updateTutorial(!rendered);
+  rendered = true;
   renderVars();
   renderLinks();
   renderSources();
@@ -690,7 +788,7 @@ $("#import-file-input").addEventListener("change", async (e) => {
 });
 
 $("#reset").addEventListener("click", () => {
-  if (!confirm("Replace your own environments, variables and links with the example? Shared files are kept.")) return;
+  if (!confirm("Remove your own environments, variables and links? Shared files are kept.")) return;
   config = normalizeConfig({ ...structuredClone(DEFAULT_CONFIG), sources: config.sources });
   openLinks.clear();
   restructured();

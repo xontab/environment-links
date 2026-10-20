@@ -56,7 +56,7 @@ Environment Links doesn't collect, sell or share any data, and has no servers of
 
 GETTING STARTED
 
-1. Install the extension. The settings page opens with an example setup.
+1. Install the extension. The settings page opens with a short, step-by-step tutorial.
 2. Set your environments and variables in the grid.
 3. Add your links, each with a name and a URL template.
 4. In the address bar, type e, a space and a link name.
