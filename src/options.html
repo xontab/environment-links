@@ -158,8 +158,12 @@
       <div class="section-head">
         <div>
           <h2><svg class="h-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg>Links</h2>
-          <p class="muted">The name is what you type after <kbd class="keyword">e</kbd>. Expand a link to preview it, or to override the URL for one environment
-            (e.g. production without the <code>{{ENVIRONMENT}}.</code> part).</p>
+          <p class="muted">In the URL template, put a variable's name in double braces, like <code>{{ENVIRONMENT}}</code> or
+            <code>{{DOMAIN}}</code>. Each environment fills in its own value from <a href="#vars-section">Variables</a>, so
+            <code>backoffice.{{ENVIRONMENT}}.{{DOMAIN}}</code> becomes <code>backoffice.dev.example.com</code> for DEV.
+            <code>https://</code> is added if you leave it out.</p>
+          <p class="muted">While you edit a link, its URL for every environment is shown below it. Type in an environment's box to use
+            a different URL there, e.g. production without the <code>{{ENVIRONMENT}}.</code> part.</p>
         </div>
         <div class="actions"><button id="add-link" type="button">+ Link</button></div>
       </div>
@@ -171,7 +175,7 @@
       <h2><svg class="h-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7"/><path d="M18 14a6.5 6.5 0 0 1 3.5 6"/></svg>Shared links</h2>
       <p class="muted">Pull links from a JSON file in a GitHub repository so your team keeps one list. The file can also set
         environments and variables. Anything you set yourself wins: your own links, names and values are used over the shared ones.
-        Shared files are synced when Chrome starts, every hour, and when you click <em>Sync now</em>.</p>
+        Shared links are synced when Chrome starts, every hour, and when you click <em>Sync now</em>.</p>
       <div id="sources"></div>
       <form id="add-source" class="add-source">
         <input id="source-location" class="mono" required
@@ -182,13 +186,13 @@
       </form>
 
       <details class="share-builder">
-        <summary><svg class="h-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M12 12v6"/><path d="M9 15h6"/></svg>Create a shared file from your links</summary>
+        <summary><svg class="h-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M12 12v6"/><path d="M9 15h6"/></svg>Create a Shared links file from your links</summary>
         <p class="muted">Pick the links to share, then commit the JSON below as <code>environment-links.json</code> in a GitHub
           repository your team can read. Anyone who adds that repository above gets these links.</p>
         <div id="share-links" class="share-links"></div>
         <label class="inline"><input id="share-values" type="checkbox" checked>
           Include the environments and variable values these links use</label>
-        <textarea id="share-json" rows="10" readonly spellcheck="false" aria-label="Shared file JSON"></textarea>
+        <textarea id="share-json" rows="10" readonly spellcheck="false" aria-label="Shared links JSON"></textarea>
         <div class="actions"><button id="share-copy" type="button">Copy</button></div>
       </details>
     </section>

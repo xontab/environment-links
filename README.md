@@ -24,7 +24,7 @@ e backoffice
 - **One template per link:** variables per environment, a Default row for shared values, and per-environment overrides.
 - **Team sharing:** pull a shared set of links, environments and variables from a JSON file in a GitHub repository. Your own settings still win.
 - **Portable:** settings sync through your Chrome profile, and you can export and import them as a JSON file.
-- **Private:** no analytics and no servers. The only network requests go to GitHub, for shared files you add.
+- **Private:** no analytics and no servers. The only network requests go to GitHub, for Shared links you add.
 
 ## Install
 
@@ -98,7 +98,7 @@ The file uses the same format as the export. Every field is optional, but it nee
 }
 ```
 
-How shared files combine with your own settings:
+How Shared links combine with your own settings:
 
 - Your own links come first. A shared link with the same name as one of yours is ignored and marked **Overridden**. To change a shared link, click its pencil (**Override**) button: it copies the link into your own links, where your copy is used instead. To go back to the shared one, click the restore (↺) button next to **Overridden**, or delete your copy.
 - Environments match on `id`. Shared environments you don't have are added to the end, marked "shared".

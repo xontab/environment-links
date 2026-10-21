@@ -38,7 +38,7 @@ When one environment doesn't follow the pattern (production often drops the envi
 
 SHARE LINKS WITH YOUR TEAM
 
-Keep your team's links in a JSON file in a GitHub repository, and everyone who adds that repository gets the same links, environments and variables. Shared files refresh when Chrome starts and every hour. Anything you set yourself still wins: your own links, names and values are used over the shared ones, and you can override any shared link with your own copy. Private repositories work with a read-only GitHub access token, which stays on your computer. The settings page builds the file for you from the links you pick.
+Keep your team's links in a JSON file in a GitHub repository, and everyone who adds that repository gets the same links, environments and variables. Shared links refresh when Chrome starts and every hour. Anything you set yourself still wins: your own links, names and values are used over the shared ones, and you can override any shared link with your own copy. Private repositories work with a read-only GitHub access token, which stays on your computer. The settings page builds the file for you from the links you pick.
 
 FEATURES
 
@@ -57,7 +57,7 @@ FEATURES
 
 PRIVACY
 
-Environment Links doesn't collect, sell or share any data, and has no servers of its own. Your environments, variables and links are stored in Chrome's own sync storage. The only network requests it makes are to GitHub, to read shared files you've chosen to add, and it only asks for GitHub access when you add one.
+Environment Links doesn't collect, sell or share any data, and has no servers of its own. Your environments, variables and links are stored in Chrome's own sync storage. The only network requests it makes are to GitHub, to read Shared links you've chosen to add, and it only asks for GitHub access when you add one.
 
 GETTING STARTED
 

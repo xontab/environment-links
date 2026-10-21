@@ -152,10 +152,10 @@ function renderVars() {
               grip("var", name, `variable ${name}`, "x"),
               el("input", {
                 class: "mono", value: name, "aria-label": "Variable name", readOnly: shared,
-                title: shared ? "Defined in a shared file, so it can't be renamed here" : "",
+                title: shared ? "Defined in Shared links, so it can't be renamed here" : "",
                 onchange: (e) => renameVariable(name, e.target.value),
               }),
-              shared ? sharedTag("a shared file") : null,
+              shared ? sharedTag("Shared links") : null,
               iconButton(
                 shared ? `Clear your values for ${name}` : `Remove ${name}`, "✕",
                 () => {
@@ -211,7 +211,7 @@ function renderVars() {
               value: own?.name ?? env.name, "aria-label": "Environment name",
               oninput: (e) => { ownEnvironment(env, true).name = e.target.value; changed(); },
             }),
-            shared ? sharedTag(env.source || "a shared file") : null
+            shared ? sharedTag(env.source || "Shared links") : null
           )
         ),
         ...effective.variableNames.map((name) =>
@@ -504,7 +504,7 @@ function renderLinks() {
         el("div", { class: "link-row" },
           toggleButton(link),
           el("input", {
-            value: link.key, placeholder: "name, e.g. backoffice", "aria-label": "Link name",
+            value: link.key, placeholder: "Link Name (e.g. BackOffice)", "aria-label": "Link name",
             oninput: (e) => { link.key = e.target.value.trim(); changed(); },
           }),
           el("input", {
@@ -562,13 +562,30 @@ $("#links").addEventListener("focusin", (e) => {
   if (box && e.target.closest(".link-row input") && openLink !== box.linkKey) openOnly(box.linkKey);
 });
 
+const GITHUB_MARK = `<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="currentColor"><path d="M12 .5a11.5 11.5 0 0 0-3.64 22.41c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.53-1.33-1.28-1.69-1.28-1.69-1.05-.71.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.56-.29-5.25-1.28-5.25-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.04 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.77 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.58.23 2.75.11 3.04.74.81 1.19 1.83 1.19 3.09 0 4.41-2.7 5.38-5.26 5.67.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .5z"/></svg>`;
+
+/** "Shared links from owner/repo", with the repository linking to the file on GitHub. */
+function sourceHeading(source, repo) {
+  const mark = el("span", { class: "source-mark", "aria-hidden": "true" });
+  mark.innerHTML = GITHUB_MARK;
+  const name = source
+    ? el("a", { href: fileUrl(source), target: "_blank", rel: "noopener", title: `${source.path} on ${source.branch || "the default branch"}` }, repo)
+    : el("span", {}, repo);
+  return el("h3", { class: "source-heading" }, mark, "Shared links from ", name);
+}
+
 function renderSharedLinks() {
   const root = $("#shared-links");
   root.replaceChildren();
   if (!effective.sharedLinks.length) return;
-  root.append(el("h3", {}, "From shared files"));
 
+  // Shared links come out in source order; each source gets a heading naming the repository.
+  let lastSource = null;
   effective.sharedLinks.forEach((link, i) => {
+    if (link.source !== lastSource) {
+      lastSource = link.source;
+      root.append(sourceHeading(config.sources.find((src) => src.repo === link.source), link.source));
+    }
     const key = `shared:${link.source}:${link.key}`;
 
     root.append(
@@ -760,7 +777,7 @@ function renderSources() {
   const root = $("#sources");
   root.replaceChildren();
   if (!config.sources.length) {
-    root.append(el("p", { class: "empty" }, "No shared files yet."));
+    root.append(el("p", { class: "empty" }, "No Shared links added yet."));
     return;
   }
   config.sources.forEach((source, i) => {
@@ -818,7 +835,7 @@ $("#add-source").addEventListener("submit", async (e) => {
     return;
   }
   if (!(await granted)) {
-    setStatus("Allow access to api.github.com to sync shared files.", "err");
+    setStatus("Allow access to api.github.com to sync Shared links.", "err");
     return;
   }
   config.sources.push(source);
@@ -1195,7 +1212,7 @@ window.addEventListener("dragover", (e) => { if (hasFiles(e)) e.preventDefault()
 window.addEventListener("drop", (e) => { if (hasFiles(e)) e.preventDefault(); });
 
 $("#reset").addEventListener("click", () => {
-  if (!confirm("Remove your own environments, variables and links? Shared files are kept.")) return;
+  if (!confirm("Remove your own environments, variables and links? Shared links are kept.")) return;
   config = normalizeConfig({ ...structuredClone(DEFAULT_CONFIG), sources: config.sources });
   openLink = null;
   restructured();

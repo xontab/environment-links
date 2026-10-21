@@ -135,7 +135,7 @@ table.grid { border-collapse: collapse; width: 100%; }
 .grid .row-actions { width: 1%; white-space: nowrap; }
 
 .link { border: 1px solid var(--border); border-radius: 8px; margin-bottom: 8px; }
-.link-row { display: grid; grid-template-columns: 28px minmax(100px, 180px) 1fr auto; gap: 8px; align-items: center; padding: 8px; }
+.link-row { display: grid; grid-template-columns: 28px minmax(140px, 240px) 1fr auto; gap: 8px; align-items: center; padding: 8px; }
 .link-row .toggle {
   display: grid; place-items: center; width: 28px; height: 28px; padding: 0;
   border: 0; border-radius: 6px; background: none; color: var(--muted);
@@ -429,7 +429,7 @@ button:has(> .btn-icon) { display: inline-flex; align-items: center; gap: 6px; }
 /* Behaviour: each shortcut on a row, with its name, its keys and an action lined up in columns */
 .shortcuts {
   display: grid; grid-template-columns: max-content max-content 1fr; align-items: center;
-  gap: 10px 16px; margin: 4px 0 14px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px;
+  gap: 10px 16px; margin: 10px 0 14px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px;
 }
 .shortcut { display: contents; }
 .shortcut-name { font-weight: 600; }
@@ -446,3 +446,9 @@ button:has(> .btn-icon) { display: inline-flex; align-items: center; gap: 6px; }
 .token-label { display: inline-flex; align-items: center; gap: 4px; }
 .help-link { display: inline-grid; place-items: center; color: var(--muted); border-radius: 50%; }
 .help-link:hover, .help-link:focus-visible { color: var(--accent); }
+.section-head p a { color: var(--accent); }
+
+/* "Shared links from owner/repo" above each source's links */
+.source-heading { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.source-heading .source-mark { display: grid; color: var(--muted); }
+.source-heading a { color: var(--accent); }
