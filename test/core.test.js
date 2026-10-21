@@ -167,3 +167,11 @@ test("a saved environment order applies to own and shared environments alike", (
   assert.deepEqual(search("back", resolveConfig(ordered, [layer(team)])).map((r) => r.env.id).slice(0, 2), ["qa", "production"]);
   assert.deepEqual(normalizeConfig({ environmentOrder: ["a", "a", 3] }).environmentOrder, ["a", "3"]);
 });
+
+test("a saved variable order applies to own and shared variables", () => {
+  const shared = parseSharedFile(JSON.stringify({ variableNames: ["REGION"], globals: { REGION: "eu" }, links: [{ key: "x", template: "x" }] }));
+  const plain = resolveConfig(config, [layer(shared)]).variableNames;
+  assert.deepEqual(plain, ["ENVIRONMENT", "DOMAIN", "REGION"]);
+  const ordered = normalizeConfig({ ...config, variableOrder: ["REGION", "DOMAIN"] });
+  assert.deepEqual(resolveConfig(ordered, [layer(shared)]).variableNames, ["REGION", "DOMAIN", "ENVIRONMENT"]);
+});

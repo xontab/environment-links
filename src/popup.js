@@ -118,7 +118,7 @@ function render() {
   rows.push([settings]);
   list.append(
     el("li", { className: "settings-row" },
-      el("span", { className: "muted" }, "Edit environments, variables and links"),
+      el("span", { className: "muted" }, shortcutHint || "Edit environments, variables and links"),
       settings.node
     )
   );
@@ -145,7 +145,15 @@ filter.addEventListener("keydown", (e) => {
   }
 });
 
+// "Open this list with ⌘⇧E", when a shortcut is set, so people discover it.
+let shortcutHint = "";
+
 (async () => {
+  try {
+    const commands = await chrome.commands.getAll();
+    const shortcut = commands.find((c) => c.name === "_execute_action")?.shortcut;
+    if (shortcut) shortcutHint = `Open this list with ${shortcut}`;
+  } catch {}
   config = await loadEffectiveConfig();
   render();
 })();

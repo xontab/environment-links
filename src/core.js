@@ -44,6 +44,8 @@ export function normalizeConfig(raw) {
     // The order environments are listed in, by id. It covers shared environments too, so they
     // can be reordered alongside the user's own. Ids not listed keep their place at the end.
     environmentOrder: [...new Set((Array.isArray(cfg.environmentOrder) ? cfg.environmentOrder : []).map(String))],
+    // The same for variable columns, covering shared variables too.
+    variableOrder: [...new Set((Array.isArray(cfg.variableOrder) ? cfg.variableOrder : []).map(String))],
   };
 }
 
@@ -160,12 +162,10 @@ export function resolveConfig(local, layers = []) {
     ...[...sharedEnvs.values()].filter((e) => !localIds.has(e.id)).map((e) => build(e.id, e.name, {}, e.source)),
   ], local.environmentOrder || []);
 
-  const variableNames = [
-    ...new Set([
-      ...local.variableNames,
-      ...layers.flatMap(({ data }) => data?.variableNames || []),
-    ]),
-  ];
+  const variableNames = sortByOrder(
+    [...new Set([...local.variableNames, ...layers.flatMap(({ data }) => data?.variableNames || [])])].map((id) => ({ id })),
+    local.variableOrder || []
+  ).map((v) => v.id);
 
   return {
     ...local,

@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- Drawn on the 32px grid: three 4px rows, 4px apart, so edges stay sharp. -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#3b82f6"/>
+      <stop offset="1" stop-color="#4338ca"/>
+    </linearGradient>
+  </defs>
+  <rect width="32" height="32" rx="7" fill="url(#bg)"/>
+  <rect x="6" y="6" width="4" height="4" rx="2" fill="#4ade80"/>
+  <rect x="12" y="6" width="14" height="4" rx="2" fill="#fff"/>
+  <rect x="6" y="14" width="4" height="4" rx="2" fill="#facc15"/>
+  <rect x="12" y="14" width="14" height="4" rx="2" fill="#fff"/>
+  <rect x="6" y="22" width="4" height="4" rx="2" fill="#f87171"/>
+  <rect x="12" y="22" width="14" height="4" rx="2" fill="#fff"/>
+</svg>

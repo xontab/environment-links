@@ -20,7 +20,11 @@ e backoffice
 
 OR USE THE TOOLBAR BUTTON
 
-Click the extension's icon for a list of all your links, each with a button per environment. Type to filter the list, use the arrow keys to pick a link and environment, and press Enter to open it, or just click any environment. Cmd- or Ctrl-click opens it in a background tab. Settings is the last item in the list.
+Click the extension's icon, or press Ctrl+Shift+E (Cmd+Shift+E on a Mac), for a list of all your links, each with a button per environment. You can change the shortcut from the settings page. Type to filter the list, use the arrow keys to pick a link and environment, and press Enter to open it, or just click any environment. Cmd- or Ctrl-click opens it in a background tab. Settings is the last item in the list.
+
+KEYBOARD SHORTCUT
+
+Press Ctrl+Shift+E (Cmd+Shift+E on a Mac) on any page to open the link list without reaching for the mouse. The search box is ready to type in: start typing a link name, pick an environment with the arrow keys and press Enter. Prefer a different key? Click "Change shortcut" in the extension's settings to set your own.
 
 WRITE EACH URL ONCE
 
@@ -34,11 +38,12 @@ When one environment doesn't follow the pattern (production often drops the envi
 
 SHARE LINKS WITH YOUR TEAM
 
-Keep your team's links in a JSON file in a GitHub repository, and everyone who adds that repository gets the same links, environments and variables. Shared files refresh when Chrome starts and every hour. Anything you set yourself still wins: your own links, names and values are used over the shared ones, and you can copy a shared link to customise it. Private repositories work with a read-only GitHub access token, which stays on your computer. The settings page builds the file for you from the links you pick.
+Keep your team's links in a JSON file in a GitHub repository, and everyone who adds that repository gets the same links, environments and variables. Shared files refresh when Chrome starts and every hour. Anything you set yourself still wins: your own links, names and values are used over the shared ones, and you can override any shared link with your own copy. Private repositories work with a read-only GitHub access token, which stays on your computer. The settings page builds the file for you from the links you pick.
 
 FEATURES
 
 • Works from the address bar, or from a link list on the toolbar button
+• Open the link list with a keyboard shortcut you can change
 • One URL template per link, with variables set per environment
 • Shared default values with per-environment overrides
 • Per-link URL overrides for environments that don't fit the pattern

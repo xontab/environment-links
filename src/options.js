@@ -14,7 +14,9 @@ let config = normalizeConfig(DEFAULT_CONFIG);
 let cache = {};
 let tokens = {};
 let effective = resolveConfig(config);
-const openLinks = new Set();
+// At most one link's preview and overrides are open at a time: the key of that link (an own
+// link object, or "shared:<source>:<key>" for a shared one), or null.
+let openLink = null;
 const syncing = new Set();
 let saveTimer;
 
@@ -145,8 +147,9 @@ function renderVars() {
         el("th", {}, el("span", { class: "fixed" }, "Environment")),
         ...effective.variableNames.map((name) => {
           const shared = sharedNames.has(name);
-          return el("th", {},
+          return el("th", { dataset: { var: name } },
             el("div", { class: "head-cell" },
+              grip("var", name, `variable ${name}`, "x"),
               el("input", {
                 class: "mono", value: name, "aria-label": "Variable name", readOnly: shared,
                 title: shared ? "Defined in a shared file, so it can't be renamed here" : "",
@@ -195,15 +198,15 @@ function renderVars() {
     )
   );
 
-  const last = effective.environments.length - 1;
-  effective.environments.forEach((env, pos) => {
+  effective.environments.forEach((env) => {
     const own = ownEnvironment(env, false);
     const i = own ? config.environments.indexOf(own) : -1;
     const shared = sharedIds.has(env.id);
     body.append(
-      el("tr", {},
+      el("tr", { dataset: { env: env.id } },
         el("th", {},
           el("div", { class: "head-cell" },
+            grip("env", env.id, `environment ${env.name}`, "y"),
             el("input", {
               value: own?.name ?? env.name, "aria-label": "Environment name",
               oninput: (e) => { ownEnvironment(env, true).name = e.target.value; changed(); },
@@ -217,8 +220,6 @@ function renderVars() {
         ),
         el("td", { class: "row-actions" },
           el("div", { class: "head-cell" },
-            iconButton("Move up", "▲", () => moveEnvironment(pos, -1), pos === 0),
-            iconButton("Move down", "▼", () => moveEnvironment(pos, 1), pos === last),
             shared
               ? iconButton(`Clear your values for ${env.name}`, "✕", () => {
                   config.environments.splice(i, 1);
@@ -238,6 +239,7 @@ function renderVars() {
   });
   table.append(body);
   refreshPlaceholders();
+  restoreGripFocus();
 }
 
 /** Blank cells show, as a placeholder, the value they get from Default or a shared file. */
@@ -273,12 +275,116 @@ function renameVariable(from, rawTo) {
 }
 
 /** Reorder any environment, own or shared, by saving the full order of the list as shown. */
-function moveEnvironment(pos, delta) {
-  const ids = effective.environments.map((e) => e.id);
-  moveItem(ids, pos, delta);
-  config.environmentOrder = ids;
+// ---- Reordering rows and columns by drag and drop -----------------------------
+
+// Environments (rows) and variables (columns) are reordered by their ⋮⋮ handle: drag it, or
+// focus it and use the arrow keys. Either way the full order is saved, so shared environments
+// and variables can be placed among the user's own.
+const ORDER = {
+  env: { list: () => effective.environments.map((e) => e.id), save: (ids) => { config.environmentOrder = ids; } },
+  var: { list: () => [...effective.variableNames], save: (ids) => { config.variableOrder = ids; } },
+};
+let dragging = null; // { kind, id }
+let focusAfterRender = null; // the handle to focus again once the grid is rebuilt
+
+function reorder(kind, id, targetId, after) {
+  const ids = ORDER[kind].list().filter((x) => x !== id);
+  const at = ids.indexOf(targetId);
+  ids.splice(at < 0 ? ids.length : at + (after ? 1 : 0), 0, id);
+  ORDER[kind].save(ids);
   restructured();
 }
+
+function nudge(kind, id, delta) {
+  const ids = ORDER[kind].list();
+  const from = ids.indexOf(id);
+  const to = from + delta;
+  if (from < 0 || to < 0 || to >= ids.length) return;
+  moveItem(ids, from, delta);
+  ORDER[kind].save(ids);
+  focusAfterRender = `${kind}:${id}`;
+  restructured();
+}
+
+const GRIP_ICON = `<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="currentColor">
+  <circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/>
+  <circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg>`;
+
+function grip(kind, id, label, axis) {
+  const keys = axis === "y" ? { ArrowUp: -1, ArrowDown: 1 } : { ArrowLeft: -1, ArrowRight: 1 };
+  const button = el("button", {
+    type: "button", class: "grip", dataset: { grip: `${kind}:${id}` },
+    title: `Drag to move ${label}, or use the arrow keys`, "aria-label": `Move ${label}`,
+    onkeydown: (e) => {
+      if (!(e.key in keys)) return;
+      e.preventDefault();
+      nudge(kind, id, keys[e.key]);
+    },
+    // Only the handle starts a drag, so text in the inputs can still be selected normally.
+    onpointerdown: () => { (button.closest(kind === "env" ? "tr" : "th")).draggable = true; },
+  });
+  button.innerHTML = GRIP_ICON; // static markup
+  return button;
+}
+
+function restoreGripFocus() {
+  if (!focusAfterRender) return;
+  document.querySelector(`.grip[data-grip="${CSS.escape(focusAfterRender)}"]`)?.focus();
+  focusAfterRender = null;
+}
+
+function clearDropMarks() {
+  document.querySelectorAll("#vars .drop-before, #vars .drop-after, #vars .dragging")
+    .forEach((n) => n.classList.remove("drop-before", "drop-after", "dragging"));
+}
+
+/** Where the dragged item would land: before or after the row or column under the pointer. */
+function dropTarget(e) {
+  if (!dragging) return null;
+  const node = e.target.closest(dragging.kind === "env" ? "tr[data-env]" : "th[data-var]");
+  if (!node) return null;
+  const id = dragging.kind === "env" ? node.dataset.env : node.dataset.var;
+  if (id === dragging.id) return null;
+  const box = node.getBoundingClientRect();
+  const after = dragging.kind === "env" ? e.clientY > box.top + box.height / 2 : e.clientX > box.left + box.width / 2;
+  return { node, id, after };
+}
+
+const varsTable = $("#vars");
+varsTable.addEventListener("dragstart", (e) => {
+  const node = e.target.closest("tr[data-env], th[data-var]");
+  if (!node?.draggable) return e.preventDefault();
+  dragging = node.dataset.env ? { kind: "env", id: node.dataset.env } : { kind: "var", id: node.dataset.var };
+  e.dataTransfer.effectAllowed = "move";
+  e.dataTransfer.setData("text/plain", dragging.id);
+  node.classList.add("dragging");
+});
+varsTable.addEventListener("dragover", (e) => {
+  const target = dropTarget(e);
+  if (!target) return;
+  e.preventDefault();
+  e.dataTransfer.dropEffect = "move";
+  document.querySelectorAll("#vars .drop-before, #vars .drop-after")
+    .forEach((n) => n.classList.remove("drop-before", "drop-after"));
+  target.node.classList.add(target.after ? "drop-after" : "drop-before");
+});
+varsTable.addEventListener("drop", (e) => {
+  const target = dropTarget(e);
+  if (!target) return;
+  e.preventDefault();
+  const { kind, id } = dragging;
+  dragging = null;
+  clearDropMarks();
+  reorder(kind, id, target.id, target.after);
+});
+varsTable.addEventListener("dragend", (e) => {
+  e.target.closest?.("[draggable]")?.removeAttribute("draggable");
+  dragging = null;
+  clearDropMarks();
+});
+document.addEventListener("pointerup", () => {
+  if (!dragging) varsTable.querySelectorAll("[draggable]").forEach((n) => n.removeAttribute("draggable"));
+});
 
 function moveItem(list, index, delta) {
   const [item] = list.splice(index, 1);
@@ -300,18 +406,86 @@ const CHEVRON = `<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="tr
   stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>`;
 
 function toggleButton(key) {
-  const isOpen = openLinks.has(key);
   const button = el("button", {
-    type: "button", class: "toggle", "aria-expanded": String(isOpen),
-    title: isOpen ? "Hide preview and overrides" : "Show preview and overrides",
-    "aria-label": isOpen ? "Hide preview and overrides" : "Show preview and overrides",
-    onclick: () => {
-      if (openLinks.has(key)) openLinks.delete(key); else openLinks.add(key);
-      renderLinks();
-    },
+    type: "button", class: "toggle",
+    onclick: () => openOnly(openLink === key ? null : key),
   });
   button.innerHTML = CHEVRON; // static markup
   return button;
+}
+
+/** A link's row in the list, remembering which link it shows so it can be opened in place. */
+function linkBox(key, className, ...children) {
+  const box = el("div", { class: className }, ...children);
+  box.linkKey = key;
+  return box;
+}
+
+/** A note in the same style as the "Alt+Enter still works" one under Behaviour. */
+function infoNote(text) {
+  const note = el("p", { class: "info", role: "note" });
+  note.innerHTML = `<svg class="info-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none"
+    stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5"/><path d="M12 8h.01"/></svg>`;
+  note.append(el("span", {}, text)); // the text is added as text, never as markup
+  return note;
+}
+
+/** A pencil, for "Override with your own copy". */
+function pencilIcon() {
+  const icon = el("span", { class: "override-icon", "aria-hidden": "true" });
+  icon.innerHTML = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"
+    stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>`;
+  return icon;
+}
+
+/** An anticlockwise arrow, for "Restore the shared link". */
+function restoreIcon() {
+  const icon = el("span", { class: "override-icon", "aria-hidden": "true" });
+  icon.innerHTML = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"
+    stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>`;
+  return icon;
+}
+
+/** Delete the user's own link(s) with this shared link's name, so the shared one is used again. */
+async function restoreShared(shared) {
+  const name = shared.key.toLowerCase();
+  if (!confirm(`Delete your own "${shared.key}" link and use the shared one from ${shared.source} again?`)) return;
+  config.links = config.links.filter((l) => l.key.toLowerCase() !== name);
+  if (openLink && typeof openLink === "object" && openLink.key.toLowerCase() === name) openLink = null;
+  render();
+  await saveNow(); // save first, so "Saved" doesn't replace the message below
+  setStatus(`Restored the shared "${shared.key}" link.`, "ok");
+}
+
+/** Go to the user's own link with this name: open it, bring it into view and briefly highlight it. */
+function showOwnLink(name) {
+  const own = config.links.find((l) => l.key.toLowerCase() === name.toLowerCase());
+  const box = own && [...document.querySelectorAll("#links .link")].find((b) => b.linkKey === own);
+  if (!box) return;
+  openOnly(own);
+  box.scrollIntoView({ block: "center" });
+  box.querySelector(".link-row input.template")?.focus({ preventScroll: true });
+  box.classList.remove("flash");
+  void box.offsetWidth; // restart the animation if it's clicked twice
+  box.classList.add("flash");
+  box.addEventListener("animationend", () => box.classList.remove("flash"), { once: true });
+}
+
+/**
+ * Open one link (closing any other), or close them all with null. It only switches classes,
+ * because the details already exist: rebuilding would lose the cursor in a field being typed in.
+ */
+function openOnly(key) {
+  openLink = key;
+  document.querySelectorAll("#links .link, #shared-links .link").forEach((box) => {
+    const open = box.linkKey === key;
+    box.classList.toggle("open", open);
+    const toggle = box.querySelector(".toggle");
+    const label = open ? "Hide preview and overrides" : "Show preview and overrides";
+    toggle.setAttribute("aria-expanded", String(open));
+    toggle.title = label;
+    toggle.setAttribute("aria-label", label);
+  });
 }
 
 function renderLinks() {
@@ -323,10 +497,10 @@ function renderLinks() {
   }
 
   config.links.forEach((link, i) => {
-    const isOpen = openLinks.has(link);
+
     const shadows = effective.sharedLinks.find((s) => s.shadowed && s.key.toLowerCase() === link.key.toLowerCase());
     root.append(
-      el("div", { class: `link${isOpen ? " open" : ""}` },
+      linkBox(link, "link",
         el("div", { class: "link-row" },
           toggleButton(link),
           el("input", {
@@ -346,7 +520,9 @@ function renderLinks() {
             } }, "✕")
         ),
         el("div", { class: "link-details" },
-          shadows ? el("p", { class: "muted" }, `Used instead of the shared "${shadows.key}" link from ${shadows.source}.`) : null,
+          shadows
+            ? infoNote(`This overrides the shared "${shadows.key}" link from ${shadows.source}. Delete this link, or click restore (↺) on the shared one, to use it again.`)
+            : null,
           ...effective.environments.map((env) =>
             previewRow(env, String(i), el("input", {
               class: "mono",
@@ -367,7 +543,24 @@ function renderLinks() {
 
   renderSharedLinks();
   renderPreviews();
+  openOnly(openLink);
 }
+
+// Clicking a shared link's row opens it (or closes it if it's already open), like its arrow.
+// Its buttons keep their own actions. The arrow stays the keyboard way to do it.
+$("#shared-links").addEventListener("click", (e) => {
+  const row = e.target.closest(".link-row");
+  if (!row || e.target.closest("button, a, input")) return;
+  const box = row.closest(".link");
+  openOnly(openLink === box.linkKey ? null : box.linkKey);
+});
+
+// Clicking or tabbing into a link's name or template opens that link (and closes the others),
+// so its previews and overrides are in view while it's being edited.
+$("#links").addEventListener("focusin", (e) => {
+  const box = e.target.closest(".link");
+  if (box && e.target.closest(".link-row input") && openLink !== box.linkKey) openOnly(box.linkKey);
+});
 
 function renderSharedLinks() {
   const root = $("#shared-links");
@@ -377,26 +570,47 @@ function renderSharedLinks() {
 
   effective.sharedLinks.forEach((link, i) => {
     const key = `shared:${link.source}:${link.key}`;
-    const isOpen = openLinks.has(key);
+
     root.append(
-      el("div", { class: `link shared${isOpen ? " open" : ""}${link.shadowed ? " shadowed" : ""}` },
+      linkBox(key, `link shared${link.shadowed ? " shadowed" : ""}`,
         el("div", { class: "link-row" },
           toggleButton(key),
           el("span", { class: "key-text" }, link.key, " ", sharedTag(link.source)),
           el("span", { class: "mono template-text", title: link.template }, link.template),
-          el("button", {
-            type: "button", title: "Copy into your own links so you can change it",
-            disabled: link.shadowed,
-            onclick: () => {
-              config.links.push({ key: link.key, template: link.template, overrides: { ...link.overrides } });
-              restructured();
-              setStatus(`Copied "${link.key}". Your copy is now used instead of the shared one.`, "ok");
-            },
-          }, "Customise")
+          link.shadowed
+            ? el("span", { class: "override-actions" },
+                el("button", {
+                  type: "button", class: "tag overridden",
+                  title: "Your own link with this name is used instead. Click to go to it.",
+                  onclick: () => showOwnLink(link.key),
+                }, "Overridden"),
+                el("button", {
+                  type: "button", class: "restore",
+                  title: `Restore: delete your own "${link.key}" link and use the shared one again`,
+                  "aria-label": `Restore the shared ${link.key} link`,
+                  onclick: () => restoreShared(link),
+                }, restoreIcon())
+              )
+            : el("button", {
+                type: "button", class: "override",
+                title: `Override: copy "${link.key}" into your own links and change it there. Your copy is used instead of the shared one.`,
+                "aria-label": `Override ${link.key} with your own copy`,
+                onclick: async () => {
+                  const copy = { key: link.key, template: link.template, overrides: { ...link.overrides } };
+                  config.links.push(copy);
+                  openLink = copy; // open the copy, ready to edit
+                  render();
+                  const box = [...document.querySelectorAll("#links .link")].find((b) => b.linkKey === copy);
+                  box?.scrollIntoView({ block: "center" });
+                  box?.querySelector(".link-row input.template")?.focus({ preventScroll: true });
+                  await saveNow(); // save first, so "Saved" doesn't replace the message below
+                  setStatus(`"${link.key}" is now overridden by your own copy. Edit it in Links.`, "ok");
+                },
+              }, pencilIcon())
         ),
         el("div", { class: "link-details" },
           link.shadowed
-            ? el("p", { class: "muted" }, "Not used: you have your own link with this name.")
+            ? infoNote("Overridden: your own link with this name is used instead. Click restore (↺) to use the shared one again.")
             : null,
           ...effective.environments.map((env) =>
             previewRow(env, `s${i}`, el("span", { class: "mono muted" },
@@ -475,6 +689,73 @@ async function runSync(source) {
   else setStatus(`Synced ${source.repo}`, "ok");
 }
 
+const SYNC_ICON = `<path d="M21 12a9 9 0 0 1-15.5 6.2L3 16"/><path d="M3 21v-5h5"/>
+  <path d="M3 12a9 9 0 0 1 15.5-6.2L21 8"/><path d="M21 3v5h-5"/>`;
+const TRASH_ICON = `<path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/>`;
+
+/** A small stroked icon to sit before a button's text. The paths are static markup. */
+function buttonIcon(paths) {
+  const icon = el("span", { class: "btn-icon", "aria-hidden": "true" });
+  icon.innerHTML = `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"
+    stroke-linecap="round" stroke-linejoin="round">${paths}</svg>`;
+  return icon;
+}
+
+const KEY_ICON = `<circle cx="7.5" cy="15.5" r="4.5"/><path d="m10.7 12.3 9.8-9.8"/><path d="m17 6 3 3"/><path d="m14.5 8.5 2 2"/>`;
+const X_ICON = `<path d="M18 6 6 18"/><path d="m6 6 12 12"/>`;
+
+const TOKEN_HELP_URL =
+  "https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens#creating-a-fine-grained-personal-access-token";
+
+/** A "?" link to GitHub's guide for creating the fine-grained token a private repository needs. */
+function tokenHelpLink() {
+  const link = el("a", {
+    href: TOKEN_HELP_URL, target: "_blank", rel: "noopener", class: "help-link",
+    title: "How to create a GitHub token: make a fine-grained token with read-only Contents access to this repository",
+    "aria-label": "How to create a GitHub access token (opens GitHub's guide)",
+  });
+  link.innerHTML = `<svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" fill="none" stroke="currentColor"
+    stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/>
+    <path d="M9.5 9.5a2.5 2.5 0 0 1 4.9.8c0 1.7-2.4 2.2-2.4 3.7"/><path d="M12 17h.01"/></svg>`;
+  return link;
+}
+
+/** The access token field, with a button to save it (or replace a saved one) and one to forget it. */
+function tokenRow(source, hasToken) {
+  const input = el("input", {
+    type: "password", autocomplete: "off", spellcheck: false, "aria-label": `Access token for ${source.repo}`,
+    placeholder: hasToken ? "A token is saved on this device. Paste a new one to replace it." : "Only needed for private repositories",
+    oninput: () => { save.disabled = !input.value.trim(); },
+    onkeydown: (e) => { if (e.key === "Enter") { e.preventDefault(); saveToken(); } },
+  });
+  const saveToken = async () => {
+    const value = input.value.trim();
+    if (!value) return;
+    await setToken(source.id, value);
+    tokens = await loadTokens();
+    setStatus(hasToken ? "Token replaced on this device" : "Token saved on this device", "ok");
+    renderSources();
+  };
+  const save = el("button", { type: "button", disabled: true, onclick: saveToken },
+    buttonIcon(KEY_ICON), hasToken ? "Replace token" : "Save token");
+  return el("div", { class: "inline token" },
+    el("span", { class: "token-label" }, "Access token", tokenHelpLink()),
+    // The save button sits inside the field's right end, so the field keeps the full width.
+    el("div", { class: "token-field" }, input, save),
+    hasToken
+      ? el("button", {
+          type: "button",
+          onclick: async () => {
+            await setToken(source.id, "");
+            tokens = await loadTokens();
+            setStatus("Token forgotten", "ok");
+            renderSources();
+          },
+        }, buttonIcon(X_ICON), "Forget token")
+      : null
+  );
+}
+
 function renderSources() {
   const root = $("#sources");
   root.replaceChildren();
@@ -498,7 +779,7 @@ function renderSources() {
                 if (!(await requestGitHubAccess())) return setStatus("GitHub access wasn't allowed.", "err");
                 runSync(source);
               },
-            }, "Sync now"),
+            }, buttonIcon(SYNC_ICON), "Sync now"),
             el("button", {
               type: "button", class: "danger",
               onclick: async () => {
@@ -509,36 +790,11 @@ function renderSources() {
                 [cache, tokens] = await Promise.all([loadCache(), loadTokens()]);
                 render();
               },
-            }, "Remove")
+            }, buttonIcon(TRASH_ICON), "Remove")
           )
         ),
         el("div", { class: "source-status" }, sourceStatus(source)),
-        el("label", { class: "inline token" },
-          "Access token",
-          el("input", {
-            type: "password", autocomplete: "off", spellcheck: false,
-            placeholder: hasToken ? "Saved on this device. Type to replace." : "Only needed for private repositories",
-            onchange: async (e) => {
-              const value = e.target.value.trim();
-              if (!value) return;
-              await setToken(source.id, value);
-              tokens = await loadTokens();
-              e.target.value = "";
-              setStatus("Token saved on this device", "ok");
-              renderSources();
-            },
-          }),
-          hasToken
-            ? el("button", {
-                type: "button",
-                onclick: async () => {
-                  await setToken(source.id, "");
-                  tokens = await loadTokens();
-                  renderSources();
-                },
-              }, "Forget token")
-            : null
-        )
+        tokenRow(source, hasToken)
       )
     );
   });
@@ -670,6 +926,7 @@ showSlide(0);
 const slideActions = {
   "add-env": () => { $("#add-env").click(); $("#vars-section").scrollIntoView({ block: "start" }); },
   "add-link": () => { $("#add-link").click(); },
+  shortcut: () => { chrome.tabs.create({ url: "chrome://extensions/shortcuts" }); },
   sharing: () => { $("#sharing").scrollIntoView({ block: "start" }); $("#source-location").focus({ preventScroll: true }); },
 };
 track.addEventListener("click", (e) => {
@@ -686,6 +943,121 @@ function updateTutorial(firstRender) {
     $("#tutorial").open = true;
   }
 }
+
+// ---- Section links ----------------------------------------------------------
+
+// The sidebar is built from each section's own heading and icon, so it can't drift out of step.
+const NAV_TARGETS = [
+  ["tutorial", "Tutorial"],
+  ["vars-section"],
+  ["links-section"],
+  ["sharing"],
+  ["behaviour"],
+  ["import-export"],
+];
+const navLinks = NAV_TARGETS.map(([id, label]) => {
+  const target = document.getElementById(id);
+  const heading = target.querySelector("h2, summary");
+  const link = el("a", { href: `#${id}` });
+  const icon = heading.querySelector(".h-icon")?.cloneNode(true);
+  if (icon) link.append(icon);
+  link.append(label || heading.textContent.trim());
+  link.addEventListener("click", (e) => {
+    e.preventDefault();
+    if (target.tagName === "DETAILS") target.open = true;
+    // Measured now rather than read from CSS, so it's right even before a resize has been noticed.
+    window.scrollTo({ top: target.getBoundingClientRect().top + window.scrollY - stickyHeight() - 16 });
+    history.replaceState(null, "", `#${id}`);
+    markSection(id);
+  });
+  return { id, target, link };
+});
+$("#side-nav").append(...navLinks.map((n) => n.link));
+
+const sideNav = $("#side-nav");
+const narrowLayout = matchMedia("(max-width: 900px)");
+
+function markSection(id) {
+  let active;
+  navLinks.forEach((n) => {
+    n.link.setAttribute("aria-current", String(n.id === id));
+    if (n.id === id) active = n.link;
+  });
+  // In the narrow layout the links are a sideways-scrolling row; keep the current one visible.
+  if (narrowLayout.matches && active) {
+    const { offsetLeft, offsetWidth } = active;
+    if (offsetLeft < sideNav.scrollLeft || offsetLeft + offsetWidth > sideNav.scrollLeft + sideNav.clientWidth) {
+      sideNav.scrollTo({ left: offsetLeft - 8 });
+    }
+  }
+}
+
+// The header is sticky and its height changes with the window width; the sidebar and the
+// scroll positions both need it.
+// In the narrow layout the row of links is sticky too, so it's added to the offset.
+const header = $(".top");
+const stickyHeight = () => header.offsetHeight + (narrowLayout.matches ? sideNav.offsetHeight : 0);
+const setHeaderHeight = () => {
+  document.documentElement.style.setProperty("--header-h", `${header.offsetHeight}px`);
+  document.documentElement.style.setProperty("--nav-h", `${narrowLayout.matches ? sideNav.offsetHeight : 0}px`);
+};
+const resizeWatch = new ResizeObserver(setHeaderHeight);
+resizeWatch.observe(header);
+resizeWatch.observe(sideNav);
+narrowLayout.addEventListener("change", setHeaderHeight);
+setHeaderHeight();
+
+// Highlight the section being read: the last one whose top has passed under the header.
+function currentSection() {
+  const line = stickyHeight() + 60;
+  if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 4) {
+    return navLinks[navLinks.length - 1].id; // at the very bottom, the last section is the one in view
+  }
+  let current = navLinks[0].id;
+  for (const n of navLinks) if (n.target.getBoundingClientRect().top <= line) current = n.id;
+  return current;
+}
+// Six sections, so it's cheap enough to check on every scroll event.
+let lastSection;
+window.addEventListener("scroll", () => {
+  const id = currentSection();
+  if (id !== lastSection) { lastSection = id; markSection(id); }
+}, { passive: true });
+markSection(currentSection());
+
+// ---- Keyboard shortcut ------------------------------------------------------
+
+// The shortcut that opens the toolbar list is a Chrome "command". Extensions can't change it
+// themselves; users pick it on Chrome's own shortcuts page, so show it and link there.
+async function showPopupShortcut() {
+  let shortcut = "";
+  try {
+    const commands = await chrome.commands.getAll();
+    shortcut = commands.find((c) => c.name === "_execute_action")?.shortcut || "";
+  } catch {}
+  document.querySelectorAll(".popup-shortcut").forEach((k) => {
+    k.textContent = shortcut || "Not set";
+    k.classList.toggle("unset", !shortcut);
+  });
+  // Keycaps in the tutorial and under Behaviour: "⇧⌘E" on a Mac is one character per key,
+  // "Ctrl+Shift+E" elsewhere.
+  const keys = shortcut ? (shortcut.includes("+") ? shortcut.split("+") : [...shortcut]) : [];
+  document.querySelectorAll(".mt-keys, .popup-keycaps").forEach((box) => {
+    if (keys.length) box.replaceChildren(...keys.map((key) => el("kbd", {}, key)));
+    else if (box.classList.contains("popup-keycaps")) box.replaceChildren(el("kbd", { class: "unset" }, "Not set"));
+  });
+  document.querySelectorAll(".popup-keycaps").forEach((box) =>
+    box.setAttribute("aria-label", shortcut ? `Shortcut ${shortcut}` : "No shortcut set"));
+}
+
+$("#change-shortcut").addEventListener("click", () => {
+  chrome.tabs.create({ url: "chrome://extensions/shortcuts" });
+});
+// Pick up a change made on the shortcuts page when the user comes back to this tab.
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") showPopupShortcut();
+});
+showPopupShortcut();
 
 // ---- Footer ---------------------------------------------------------------
 
@@ -747,6 +1119,7 @@ $("#add-env").addEventListener("click", () => {
 $("#add-link").addEventListener("click", () => {
   const link = { key: "", template: "", overrides: {} };
   config.links.push(link);
+  openLink = link; // a new link opens straight away, with the others closed
   restructured();
   const inputs = document.querySelectorAll("#links .link-row input:first-of-type");
   inputs[inputs.length - 1]?.focus();
@@ -769,7 +1142,7 @@ async function importJson(text, from) {
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("expected a JSON object");
     if (!confirm(`Replace your current environments, variables and links with ${from}?`)) return;
     config = normalizeConfig(parsed);
-    openLinks.clear();
+    openLink = null;
     restructured();
     await forgetRemovedSources(config);
     setStatus("Imported", "ok");
@@ -780,17 +1153,51 @@ async function importJson(text, from) {
 
 $("#import").addEventListener("click", () => importJson($("#json").value, "this JSON"));
 
-$("#import-file").addEventListener("click", () => $("#import-file-input").click());
-$("#import-file-input").addEventListener("change", async (e) => {
-  const [file] = e.target.files;
-  e.target.value = ""; // so choosing the same file again still triggers a change
-  if (file) await importJson(await file.text(), `the contents of ${file.name}`);
+// Dropping a file onto the import box opens it there, to check before importing.
+const MAX_IMPORT_BYTES = 1024 * 1024;
+const dropZone = $("#json-drop");
+const hasFiles = (e) => [...(e.dataTransfer?.types || [])].includes("Files");
+let dragDepth = 0; // dragenter/dragleave also fire for the box's children
+dropZone.addEventListener("dragenter", (e) => {
+  if (!hasFiles(e)) return;
+  e.preventDefault();
+  dragDepth++;
+  dropZone.classList.add("over");
 });
+dropZone.addEventListener("dragover", (e) => {
+  if (!hasFiles(e)) return;
+  e.preventDefault();
+  e.dataTransfer.dropEffect = "copy";
+});
+dropZone.addEventListener("dragleave", () => {
+  if (--dragDepth <= 0) { dragDepth = 0; dropZone.classList.remove("over"); }
+});
+dropZone.addEventListener("drop", async (e) => {
+  if (!hasFiles(e)) return;
+  e.preventDefault();
+  dragDepth = 0;
+  dropZone.classList.remove("over");
+  const [file] = e.dataTransfer.files;
+  if (!file) return;
+  if (file.size > MAX_IMPORT_BYTES) return setStatus(`${file.name} is too large to be a settings file.`, "err");
+  const text = await file.text();
+  try {
+    JSON.parse(text);
+  } catch {
+    return setStatus(`${file.name} isn't a JSON file.`, "err");
+  }
+  $("#json").value = text;
+  $("#json").focus();
+  setStatus(`Opened ${file.name}. Check it, then click Import from text.`, "ok");
+});
+// A file dropped just outside the box shouldn't make Chrome open it in place of the settings page.
+window.addEventListener("dragover", (e) => { if (hasFiles(e)) e.preventDefault(); });
+window.addEventListener("drop", (e) => { if (hasFiles(e)) e.preventDefault(); });
 
 $("#reset").addEventListener("click", () => {
   if (!confirm("Remove your own environments, variables and links? Shared files are kept.")) return;
   config = normalizeConfig({ ...structuredClone(DEFAULT_CONFIG), sources: config.sources });
-  openLinks.clear();
+  openLink = null;
   restructured();
 });
 
@@ -810,6 +1217,27 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
   config = incoming;
   render();
 });
+
+// Icons before the text of the page's fixed buttons. A leading "+ " is dropped where the plus icon
+// replaces it.
+const PLUS_ICON = `<path d="M12 5v14"/><path d="M5 12h14"/>`;
+const BUTTON_ICONS = [
+  ["#add-var, #add-env, #add-link, #add-source button[type=submit], .slide-cta[data-action^='add-']", PLUS_ICON],
+  ["#share-copy", `<rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/>`],
+  ["#change-shortcut, .slide-cta[data-action='shortcut']",
+    `<rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/>`],
+  [".slide-cta[data-action='sharing']", `<path d="M5 12h14"/><path d="m13 6 6 6-6 6"/>`],
+  ["#tutorial-done", `<path d="M20 6 9 17l-5-5"/>`],
+  ["#export", `<path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/>`],
+  ["#import", `<path d="M12 21V9"/><path d="m7 14 5-5 5 5"/><path d="M5 3h14"/>`],
+  ["#reset", TRASH_ICON],
+];
+for (const [selector, icon] of BUTTON_ICONS) {
+  document.querySelectorAll(selector).forEach((button) => {
+    const label = button.textContent.trim().replace(/^\+\s*/, "");
+    button.replaceChildren(buttonIcon(icon), label);
+  });
+}
 
 (async () => {
   const stored = await chrome.storage.sync.get(CONFIG_KEY);

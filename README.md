@@ -56,7 +56,9 @@ Chrome only hands address-bar input to an extension after its keyword, so type t
 
 ## Toolbar button
 
-Click the extension's toolbar icon for a list of every link with a button per environment. Type in the box to filter (`back prod` works the same as in the address bar). `↑`/`↓` move between links, `←`/`→` between environments, and `Enter` opens the selected one.
+Click the extension's toolbar icon, or press `Ctrl+Shift+E` (`⌘⇧E` on a Mac), for a list of every link with a button per environment. Type in the box to filter (`back prod` works the same as in the address bar). `↑`/`↓` move between links, `←`/`→` between environments, and `Enter` opens the selected one.
+
+To use a different shortcut, click **Change shortcut** under Behaviour in settings, or go to `chrome://extensions/shortcuts`. If another extension already uses `Ctrl+Shift+E`, Chrome leaves this one unset until you choose a key there.
 
 A plain click follows the "open in" setting, `Cmd`/`Ctrl`-click or middle-click opens a background tab, and `Shift`-click a new tab. **Settings** at the bottom of the list opens the settings page.
 
@@ -72,9 +74,9 @@ Then click reload on the extension in `chrome://extensions`.
 
 ## Configure
 
-- **Variables**: a grid with one row per environment and one column per variable, so it grows downwards as you add environments. The **Default** row applies to any environment that leaves its cell blank, so `DOMAIN` only has to be set once.
+- **Variables**: a grid with one row per environment and one column per variable, so it grows downwards as you add environments. The **Default** row applies to any environment that leaves its cell blank, so `DOMAIN` only has to be set once. Drag the ⋮⋮ handle on a row or column to reorder environments or variables, or focus the handle and use the arrow keys.
 - **Links**: a name (what you type) and a template such as `backoffice.{{ENVIRONMENT}}.{{DOMAIN}}`. `https://` is added when no scheme is given. Expand a link to preview each environment's URL and to override it for one environment, e.g. production as `backoffice.{{DOMAIN}}`.
-- **Import / Export**: **Export to file** saves your settings as a JSON file (without access tokens). Load it back with **Import from file**, or paste its JSON into the box and click **Import from text**.
+- **Import / Export**: **Export to file** saves your settings as a JSON file (without access tokens). To load it back, drop the file onto the import box (or paste its JSON there), check it, and click **Import from text**.
 
 ## Share links with your team
 
@@ -98,7 +100,7 @@ The file uses the same format as the export. Every field is optional, but it nee
 
 How shared files combine with your own settings:
 
-- Your own links come first. A shared link with the same name as one of yours is ignored. Use **Customise** to copy a shared link and change it.
+- Your own links come first. A shared link with the same name as one of yours is ignored and marked **Overridden**. To change a shared link, click its pencil (**Override**) button: it copies the link into your own links, where your copy is used instead. To go back to the shared one, click the restore (↺) button next to **Overridden**, or delete your copy.
 - Environments match on `id`. Shared environments you don't have are added to the end, marked "shared".
 - For each variable, the lowest-priority value is listed first: shared default, your default, shared environment value, your environment value. Blank cells in the grid show the value they'll use.
 - With several files, the first in the list wins.

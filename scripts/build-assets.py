@@ -141,10 +141,18 @@ def shoot(html, out, w, h):
     print(f"{out.relative_to(ROOT)}  {w}x{h}")
 
 
+# The small toolbar sizes have their own pixel-grid drawings; the detailed one blurs below 48px.
+SMALL_ICONS = {
+    size: "data:image/svg+xml;base64," + base64.b64encode((SRC / f"icon-{size}.svg").read_bytes()).decode()
+    for size in (16, 32)
+}
+
+
 def icon_page(size, pad):
     inner = size - 2 * pad
+    uri = SMALL_ICONS.get(size, ICON_URI)
     return (f"<html><body style='margin:0;background:transparent'>"
-            f"<img src='{ICON_URI}' width='{inner}' height='{inner}' style='display:block;margin:{pad}px'></body></html>")
+            f"<img src='{uri}' width='{inner}' height='{inner}' style='display:block;margin:{pad}px'></body></html>")
 
 
 # Extension icons: full bleed at small sizes; 128 uses Google's 96px artwork + 16px padding.

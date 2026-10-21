@@ -14,7 +14,7 @@ Upload `environment-links.zip`. It contains only `manifest.json`, `src/` and `ic
 
 | Field | Value |
 | --- | --- |
-| Description | Paste [`description.txt`](description.txt) (about 4,600 of the 16,000 characters) |
+| Description | Paste [`description.txt`](description.txt) (about 5,100 of the 16,000 characters) |
 | Summary | From the manifest: "Jump from the address bar to the same link across every environment." (69 of 132 characters) |
 | Category | Developer Tools |
 | Language | English |

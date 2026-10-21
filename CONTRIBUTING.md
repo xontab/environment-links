@@ -23,7 +23,7 @@ npm test
 - Editing a shared environment creates the user's own entry with the same `id`. Shared items are never changed in place.
 - Variable precedence, lowest first: shared default, own default, shared environment value, own environment value.
 - Own links win over shared links with the same name (case-insensitive). With several sources, the first one wins.
-- `environmentOrder` is one list of ids covering own and shared environments, so any row can be moved.
+- `environmentOrder` and `variableOrder` are each one list covering own and shared items, so any row or column can be moved. They're set by dragging the ⋮⋮ handles, or with the arrow keys on a focused handle.
 
 ### Storage
 
@@ -34,6 +34,7 @@ npm test
 ### Things that look changeable but aren't
 
 - **The address-bar keyword** (`e`) only comes from `manifest.json`. Change it with `npm run keyword -- <word>` and reload the extension; it can't be a setting.
+- **The toolbar list's keyboard shortcut** is the `_execute_action` command in `manifest.json`. Its `suggested_key` only applies when nothing else has claimed the key. Users change it at `chrome://extensions/shortcuts`, and extensions can't set it; the settings page reads it with `chrome.commands.getAll()` and links there.
 - **Address-bar suggestion text** is XML. Always pass user text through `escapeXml` (`describe()` does this).
 - **Opening tabs** with `chrome.tabs.update/create` doesn't need the `tabs` permission. Don't add it.
 - **GitHub access** is an *optional* host permission (`api.github.com`). `chrome.permissions.request()` only shows its prompt during a click, so call it before any `await` in the handler.
@@ -86,10 +87,24 @@ This renders the icons and every image in `store/` from `store/source/` with hea
 
 1. runs the tests and checks that `manifest.json` and `package.json` have the same version
 2. builds the zip
-3. uploads it to the Chrome Web Store and submits it for review
-4. tags the commit `v<version>` and creates a GitHub release with the zip attached
+3. checks whether the store listing changed since the last release (see below)
+4. uploads the zip to the Chrome Web Store, and submits it for review if the listing didn't change
+5. tags the commit `v<version>` and creates a GitHub release with the zip attached
 
 The store publishes the version once review passes, with the item's existing visibility. You can also run the workflow from the **Actions** tab, and untick **Submit for review** to upload only. The upload and publish logic is in [`scripts/publish-chrome-web-store.sh`](scripts/publish-chrome-web-store.sh), which uses Chrome Web Store API v2 and a service account.
+
+### When the store listing changes
+
+The store's API can upload and submit a package, but it can't edit the listing: the description, screenshots, promo tiles, store icon or privacy answers. The store also refuses listing edits while a version is in review. So [`scripts/store-listing-checklist.sh`](scripts/store-listing-checklist.sh) compares the release with the previous `v*` tag, and if any of these changed, the workflow uploads the zip **without submitting it**:
+
+- `store/description.txt`
+- `store/screenshot-*.png`, `store/promo-*.png` or `store/store-icon-128.png`
+- `store/PRIVACY-PRACTICES.md`
+- the permissions in `manifest.json`
+
+The GitHub release (and the run's summary) then starts with a checklist of exactly what to change in the Developer Dashboard. The changed files are attached to the release, ready to upload. Make the edits, then click **Submit for review** in the dashboard. A change to `PRIVACY.md` alone doesn't hold the release back, because the policy's URL already serves the new version.
+
+To preview the checklist before releasing, run `scripts/store-listing-checklist.sh`. It compares your last commit with the latest tag, so commit first and `git fetch --tags` if the tag was created by the workflow.
 
 A release looks like this:
 

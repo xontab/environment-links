@@ -16,6 +16,8 @@
     <span id="status" class="status" role="status"></span>
   </header>
 
+  <div class="layout">
+    <nav class="side-nav" id="side-nav" aria-label="Sections"></nav>
   <main>
     <details id="tutorial" class="tutorial" open>
       <summary><svg class="h-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"/><path d="M10 21h4"/><path d="M12 3a6 6 0 0 0-3.6 10.8c.6.5 1.1 1.2 1.1 2V16h5v-.2c0-.8.5-1.5 1.1-2A6 6 0 0 0 12 3z"/></svg>How to use Environment Links<span class="tutorial-meta">5 steps</span></summary>
@@ -93,14 +95,16 @@
                   <div class="mt-row sel"><b>backoffice</b><span class="chips"><span class="chip on">DEV</span><span class="chip">STAGING</span><span class="chip">PROD</span></span></div>
                   <div class="mt-row"><b>grafana</b><span class="chips"><span class="chip">DEV</span><span class="chip">STAGING</span><span class="chip">PROD</span></span></div>
                 </div>
+                <div class="mt-keys" aria-hidden="true"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>E</kbd></div>
               </div>
             </div>
             <div class="slide-text">
               <span class="step-num">4</span>
-              <h3>Or use the toolbar button</h3>
-              <p>Click the extension's icon for every link with a button per environment. Type to search, use the arrow keys to
-                choose, and press <kbd>Enter</kbd>. Can't see the icon? Click Chrome's puzzle-piece icon and pin
-                Environment Links.</p>
+              <h3>Or open the list with a shortcut</h3>
+              <p>Press <kbd class="popup-shortcut">Not set</kbd> on any page, or click the extension's icon, for every link with a
+                button per environment. Type to search, use the arrow keys to choose, and press <kbd>Enter</kbd>. You can change
+                the shortcut, and pin the icon from Chrome's puzzle-piece menu.</p>
+              <button type="button" class="slide-cta" data-action="shortcut">Change shortcut</button>
             </div>
           </article>
 
@@ -139,8 +143,8 @@
       <div class="section-head">
         <div>
           <h2><svg class="h-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 4H7a2 2 0 0 0-2 2v4l-2 2 2 2v4a2 2 0 0 0 2 2h1"/><path d="M16 4h1a2 2 0 0 1 2 2v4l2 2-2 2v4a2 2 0 0 1-2 2h-1"/></svg>Variables</h2>
-          <p class="muted">Each row is an environment and each column a variable. A blank cell uses the value in the <em>Default</em> row.
-            Use them in templates as <code>{{NAME}}</code>.</p>
+          <p class="muted">Each row is an environment and each column a variable. A blank cell uses the value in the <em>Default</em> row.</p>
+          <p class="muted">Use them in templates as <code>{{NAME}}</code>.</p>
         </div>
         <div class="actions">
           <button id="add-var" type="button">+ Variable</button>
@@ -189,9 +193,20 @@
       </details>
     </section>
 
-    <section>
+    <section id="behaviour">
       <h2><svg class="h-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>Behaviour</h2>
-      <p>Address bar shortcut: <kbd class="keyword">e</kbd></p>
+      <div class="shortcuts">
+        <div class="shortcut">
+          <span class="shortcut-name">Address bar</span>
+          <span class="keycaps" aria-label="Type e, then Space"><kbd class="keyword">e</kbd><span class="then">then</span><kbd>Space</kbd></span>
+          <span class="muted shortcut-note">then a link name. Set by the extension, so it can't be changed.</span>
+        </div>
+        <div class="shortcut">
+          <span class="shortcut-name">Toolbar list</span>
+          <span class="keycaps popup-keycaps"><kbd class="unset">Not set</kbd></span>
+          <button id="change-shortcut" type="button">Change shortcut</button>
+        </div>
+      </div>
       <label class="inline">Pressing Enter opens the link in
         <select id="open-in">
           <option value="currentTab">the current tab</option>
@@ -206,20 +221,23 @@
       </p>
     </section>
 
-    <section>
+    <section id="import-export">
       <h2><svg class="h-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 20V4"/><path d="m3 8 4-4 4 4"/><path d="M17 4v16"/><path d="m21 16-4 4-4-4"/></svg>Import / Export</h2>
-      <p class="muted">Save your setup as a JSON file, then import it from the file or by pasting its JSON below. Access tokens are never included.</p>
-      <textarea id="json" rows="10" spellcheck="false" aria-label="Configuration JSON to import"
-        placeholder="Paste exported JSON here to import it"></textarea>
+      <p class="muted">Save your setup as a JSON file. To import, drop the file onto the box below or paste its JSON, check it,
+        then click <em>Import from text</em>. Access tokens are never included.</p>
+      <div class="drop-zone" id="json-drop">
+        <textarea id="json" rows="10" spellcheck="false" aria-label="Configuration JSON to import"
+          placeholder="Paste exported JSON here, or drop a .json file onto this box"></textarea>
+        <div class="drop-hint" aria-hidden="true">Drop the file to open it here</div>
+      </div>
       <div class="actions">
         <button id="export" type="button">Export to file</button>
-        <button id="import-file" type="button">Import from file</button>
-        <input id="import-file-input" type="file" accept=".json,application/json" hidden>
         <button id="import" type="button" class="primary">Import from text</button>
         <button id="reset" type="button" class="danger">Clear my settings</button>
       </div>
     </section>
   </main>
+  </div>
 
   <footer class="site-footer">
     <nav class="footer-links" aria-label="More from xonTAB">
