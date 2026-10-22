@@ -24,6 +24,12 @@ This is an optional host permission. Chrome asks the user for it the first time 
 
 > Reads the JSON file of shared links that the user chose, from the GitHub repository they entered, using GitHub's contents API. Only that file is requested, only from api.github.com, and nothing is written to GitHub. The permission is optional: Chrome asks the user for it the first time they add a shared links file, and the extension never requests it otherwise.
 
+### tabGroups (optional)
+
+This is an optional permission. Chrome asks the user for it only when they turn on "Put links in a tab group per environment" in the settings, and it's given back when they turn the option off.
+
+> When the user turns on the optional "Put links in a tab group per environment" setting, the extension puts each link it opens into a tab group named after that environment (for example PRODUCTION) in the current window, creating and colouring the group the first time. It only reads the names of the tab groups in that window, to find the right one. It doesn't read the pages, titles or addresses of other tabs, and nothing is sent anywhere.
+
 ## Are you using remote code?
 
 **No, I am not using remote code.**

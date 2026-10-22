@@ -50,6 +50,7 @@ FEATURES
 • Filter by environment and append a path as you type
 • Live previews that flag missing variables
 • Choose whether Enter opens the current tab, a new tab or a background tab
+• Optionally keep each environment's tabs in their own coloured tab group
 • Share a set of links with your team through a GitHub repository
 • Import and export your setup as JSON
 • Settings sync across your computers through your Chrome profile

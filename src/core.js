@@ -4,6 +4,7 @@
 // New installs start empty; the settings page walks the user through setting up.
 export const DEFAULT_CONFIG = {
   openIn: "currentTab", // currentTab | newForegroundTab | newBackgroundTab
+  groupTabs: false, // put opened links in a tab group per environment
   variableNames: [],
   globals: {},
   environments: [],
@@ -36,6 +37,7 @@ export function normalizeConfig(raw) {
   ].filter(Boolean);
   return {
     openIn: cfg.openIn || DEFAULT_CONFIG.openIn,
+    groupTabs: cfg.groupTabs === true,
     variableNames,
     globals,
     environments,
@@ -186,6 +188,43 @@ function sortByOrder(environments, order) {
     .map((env, i) => ({ env, i, r: rank.has(env.id) ? rank.get(env.id) : Infinity }))
     .sort((a, b) => a.r - b.r || a.i - b.i)
     .map((x) => x.env);
+}
+
+// ---- Tab groups --------------------------------------------------------------
+
+/** Chrome's tab group colours, in the order used for environments whose names don't suggest one. */
+const GROUP_FALLBACK = ["blue", "cyan", "pink", "grey"];
+
+/**
+ * The tab group colour for an environment, from its name: production red, pre-production orange,
+ * staging yellow, test purple, development green. Anything else cycles through the rest.
+ */
+export function tabGroupColor(name, index = 0) {
+  const n = String(name || "").toLowerCase();
+  if (/pre-?prod|uat|pre-?live/.test(n)) return "orange";
+  if (/prod|prd|\blive\b/.test(n)) return "red";
+  if (/stag|stg/.test(n)) return "yellow";
+  if (/\b(qa|tst|sit)\b|test/.test(n)) return "purple";
+  if (/dev|local/.test(n)) return "green";
+  return GROUP_FALLBACK[index % GROUP_FALLBACK.length];
+}
+
+/**
+ * The environment a URL belongs to, for address-bar suggestions, which only carry the URL.
+ * A URL with a path appended still matches its link; the longest match wins.
+ */
+export function environmentForUrl(config, url) {
+  let best = null;
+  for (const link of config.links) {
+    for (const r of expandLink(link, config)) {
+      if (!r.url || r.missing.length) continue;
+      const base = r.url.replace(/\/+$/, "");
+      if ((url === base || url.startsWith(base + "/") || url.startsWith(base + "?")) && (!best || base.length > best.length)) {
+        best = { env: r.env, length: base.length };
+      }
+    }
+  }
+  return best?.env || null;
 }
 
 /** Variable names a link uses in its template or overrides. */

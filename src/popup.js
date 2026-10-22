@@ -1,5 +1,6 @@
 import { DEFAULT_CONFIG, normalizeConfig, search, displayUrl } from "./core.js";
 import { loadEffectiveConfig } from "./shared.js";
+import { openLink } from "./open.js";
 
 const list = document.querySelector("#list");
 const filter = document.querySelector("#filter");
@@ -31,17 +32,13 @@ function emptyState(query) {
 }
 
 /** Plain click follows the "open in" setting; Cmd/Ctrl/middle-click opens in the background, Shift in a new tab. */
-async function open(url, event) {
+async function open(url, event, env) {
   let target = config.openIn;
   if (event?.metaKey || event?.ctrlKey || event?.button === 1) target = "newBackgroundTab";
   else if (event?.shiftKey) target = "newForegroundTab";
 
-  if (target === "currentTab") {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    await chrome.tabs.update(tab.id, { url });
-  } else {
-    await chrome.tabs.create({ url, active: target === "newForegroundTab" });
-  }
+  // Wait for the tab (and its group) before closing: closing the popup stops this script.
+  await openLink(url, target, env, config);
   if (target !== "newBackgroundTab") window.close();
 }
 
@@ -97,7 +94,7 @@ function render() {
           title: r.missing.length ? `${displayUrl(r.url)}\nMissing: ${r.missing.join(", ")}` : displayUrl(r.url),
           className: r.missing.length ? "warn" : "",
         }, r.env.name),
-        (e) => open(r.url, e),
+        (e) => open(r.url, e, r.env),
         r.url
       )
     );

@@ -295,6 +295,20 @@ input[readonly] { background: var(--code-bg); }
 .chips { display: flex; gap: 4px; }
 .chip { padding: 1px 6px; border: 1px solid var(--border); border-radius: 100px; font-size: 9px; font-weight: 600; }
 .chip.on { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+/* Tutorial step 5: a tab strip with a coloured group per environment */
+.mock-groups { padding-bottom: 10px; max-width: 440px; }
+.mg-strip { display: flex; align-items: flex-end; gap: 4px; padding: 8px 8px 0; background: var(--code-bg); flex-wrap: nowrap; overflow: hidden; }
+.mg-group { align-self: center; margin-bottom: 4px; padding: 1px 7px; border-radius: 6px; color: #fff; font-weight: 700; font-size: 10px; }
+.mg-tab {
+  display: flex; align-items: center; gap: 5px; padding: 5px 8px; border-radius: 7px 7px 0 0; font-size: 10.5px;
+  background: color-mix(in srgb, var(--surface) 60%, transparent); border-bottom: 2px solid var(--g);
+}
+.mg-tab.active { background: var(--surface); }
+.mg-tab i { width: 9px; height: 9px; border-radius: 3px; background: var(--g); }
+.mock-groups .g-dev { --g: #1e8e3e; } .mock-groups .g-stg { --g: #f9ab00; } .mock-groups .g-prd { --g: #d93025; }
+.mg-group.g-dev { background: #1e8e3e; } .mg-group.g-stg { background: #f9ab00; color: #202124; } .mg-group.g-prd { background: #d93025; }
+.mg-page { display: flex; align-items: center; gap: 8px; padding: 10px 10px 0; }
+.mg-page .mo-chip { color: #fff; background: #d93025; }
 .mock-share { padding: 14px; display: grid; justify-items: center; gap: 4px; position: relative; }
 .ms-repo { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border: 1px solid var(--border); border-radius: 8px; }
 .ms-repo > span { display: grid; }
@@ -452,3 +466,13 @@ button:has(> .btn-icon) { display: inline-flex; align-items: center; gap: 6px; }
 .source-heading { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .source-heading .source-mark { display: grid; color: var(--muted); }
 .source-heading a { color: var(--accent); }
+.toggle-setting { margin: 0 0 10px; }
+.toggle-setting input { width: 16px; height: 16px; flex: none; }
+
+/* A setting's tickbox on a tutorial slide */
+.slide-toggle {
+  margin-top: auto; display: flex; align-items: center; gap: 10px; padding: 10px 12px; cursor: pointer;
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--border)); border-radius: 8px; font-weight: 500;
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+}
+.slide-toggle input { width: 16px; height: 16px; flex: none; }

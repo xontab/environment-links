@@ -1,6 +1,6 @@
 # Privacy policy for Environment Links
 
-Last updated: 17 October 2026
+Last updated: 21 October 2026
 
 Environment Links is a Chrome extension by xonTAB. It opens the same link in different environments (such as dev, staging and production) from Chrome's address bar or toolbar. This policy explains what data the extension handles and where it goes.
 
@@ -31,6 +31,7 @@ No other data leaves your device. Links in the extension to the xonTAB website, 
 ## What the extension doesn't do
 
 - It doesn't read the pages you visit, your browsing history or your tabs.
+- If you turn on tab groups in the settings, it reads the names of the tab groups in the current window to find the one for the environment, and moves the tab it opened into it. Chrome asks your permission first, and this stays on your device.
 - It only sees what you type in the address bar after its shortcut (`e` and a space), and uses that only on your device to find matching links.
 - It doesn't use analytics, advertising or tracking of any kind.
 - It doesn't sell or transfer data to anyone, or use it for any purpose other than opening your links.

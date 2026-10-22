@@ -37,6 +37,7 @@ npm test
 - **The toolbar list's keyboard shortcut** is the `_execute_action` command in `manifest.json`. Its `suggested_key` only applies when nothing else has claimed the key. Users change it at `chrome://extensions/shortcuts`, and extensions can't set it; the settings page reads it with `chrome.commands.getAll()` and links there.
 - **Address-bar suggestion text** is XML. Always pass user text through `escapeXml` (`describe()` does this).
 - **Opening tabs** with `chrome.tabs.update/create` doesn't need the `tabs` permission. Don't add it.
+- **Tab groups** use the *optional* `tabGroups` permission, requested when the setting is turned on and removed when it's turned off. `src/open.js` opens a link and groups its tab; the address bar and popup both use it.
 - **GitHub access** is an *optional* host permission (`api.github.com`). `chrome.permissions.request()` only shows its prompt during a click, so call it before any `await` in the handler.
 
 ## Before you open a pull request

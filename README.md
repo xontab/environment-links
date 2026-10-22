@@ -60,6 +60,8 @@ Click the extension's toolbar icon, or press `Ctrl+Shift+E` (`⌘⇧E` on a Mac)
 
 To use a different shortcut, click **Change shortcut** under Behaviour in settings, or go to `chrome://extensions/shortcuts`. If another extension already uses `Ctrl+Shift+E`, Chrome leaves this one unset until you choose a key there.
 
+Turn on **Put links in a tab group per environment** under Behaviour to keep each environment's tabs together: every link you open joins a tab group named after its environment (DEV, PRODUCTION…), coloured to match (production red, staging yellow, dev green). Chrome asks for permission to manage tab groups when you turn it on.
+
 A plain click follows the "open in" setting, `Cmd`/`Ctrl`-click or middle-click opens a background tab, and `Shift`-click a new tab. **Settings** at the bottom of the list opens the settings page.
 
 ## Change the shortcut

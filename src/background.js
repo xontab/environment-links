@@ -1,4 +1,5 @@
-import { DEFAULT_CONFIG, search, describe } from "./core.js";
+import { DEFAULT_CONFIG, search, describe, environmentForUrl } from "./core.js";
+import { openLink } from "./open.js";
 import { CONFIG_KEY, loadEffectiveConfig, syncAll } from "./shared.js";
 
 const MAX_SUGGESTIONS = 9;
@@ -66,6 +67,7 @@ chrome.omnibox.onInputChanged.addListener(async (text, suggest) => {
 chrome.omnibox.onInputEntered.addListener(async (text, disposition) => {
   const config = await loadConfig();
   let url = text.trim();
+  let env = null;
 
   // Suggestions carry the URL as their content; the default suggestion carries the typed text.
   if (!/^[a-z][a-z0-9+.-]*:\/\//i.test(url)) {
@@ -75,10 +77,12 @@ chrome.omnibox.onInputEntered.addListener(async (text, disposition) => {
       return;
     }
     url = first.url;
+    env = first.env;
+  } else {
+    env = environmentForUrl(config, url); // for grouping the tab by environment
   }
 
   // Respect modifier keys (Alt/Cmd+Enter); otherwise use the configured default.
   const target = disposition === "currentTab" ? config.openIn : disposition;
-  if (target === "currentTab") chrome.tabs.update({ url });
-  else chrome.tabs.create({ url, active: target === "newForegroundTab" });
+  await openLink(url, target, env, config);
 });

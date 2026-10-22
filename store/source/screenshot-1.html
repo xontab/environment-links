@@ -1,13 +1,33 @@
 <!--size:1280x800--><html><head><style>{{CSS}}
-.shot { justify-content: center; gap: 56px; }
+.shot { justify-content: center; gap: 40px; }
+/* A Chrome-like tab strip, with each environment's tabs in its own coloured tab group */
+.tabs { display: flex; align-items: flex-end; gap: 6px; padding: 12px 16px 0; background: #dfe3ec; }
+.group { display: flex; align-items: flex-end; gap: 4px; }
+.group-label { align-self: center; margin-bottom: 6px; padding: 4px 11px; border-radius: 8px; color: #fff; font: 600 15px system-ui, sans-serif; }
+.tab { display: flex; align-items: center; gap: 8px; padding: 9px 16px 8px; border-radius: 10px 10px 0 0; font-size: 15px; color: #3c4043;
+  background: rgba(255,255,255,.55); border-bottom: 3px solid var(--g); white-space: nowrap; }
+.tab.active { background: #fff; }
+.tab i { width: 14px; height: 14px; border-radius: 4px; background: var(--g); opacity: .85; }
+.g-dev { --g: #1e8e3e; } .g-stg { --g: #f9ab00; } .g-prd { --g: #d93025; }
+/* Dots in the same colours as the tab groups: dev green, staging yellow, preprod orange, production red */
+.d1 { background: #1e8e3e; } .d2 { background: #f9ab00; } .d3 { background: #fa903e; } .d4 { background: #d93025; }
+.group-label.g-dev { background: #1e8e3e; } .group-label.g-stg { background: #f9ab00; color: #202124; } .group-label.g-prd { background: #d93025; }
 .bar .input { font-size: 28px; padding: 22px 28px; } .chip { font-size: 22px; } .chip img { width: 24px; height: 24px; } .caret { height: 32px; }
-.row { font-size: 26px; padding: 20px 28px; gap: 18px; } .env { min-width: 190px; } .url { font-size: 24px; } .dot { width: 16px; height: 16px; }
-.keys { color: #dbe4ff; font-size: 20px; display: flex; gap: 32px; margin-top: -24px; }
+.row { font-size: 24px; padding: 16px 28px; gap: 18px; } .env { min-width: 190px; } .url { font-size: 24px; } .dot { width: 16px; height: 16px; }
+.keys { color: #dbe4ff; font-size: 20px; display: flex; gap: 32px; margin-top: -14px; }
 .keys kbd { font: 600 16px ui-monospace, Menlo, monospace; background: rgba(255,255,255,.15); border-radius: 6px; padding: 3px 8px; margin-right: 6px; }
 </style></head><body class="shot">
   <div><h1>Every environment, one search away</h1>
-    <p class="tag">Type <b>e</b>, a space and a link name. Pick the environment and go.</p></div>
+    <p class="tag">Type <b>e</b>, a space and a link name. Pick the environment and go. Its tabs can even stay together in a coloured group.</p></div>
   <div class="bar">
+    <div class="tabs" aria-hidden="true">
+      <div class="group g-dev"><span class="group-label g-dev">DEV</span>
+        <span class="tab"><i></i>backoffice</span><span class="tab"><i></i>grafana</span></div>
+      <div class="group g-stg"><span class="group-label g-stg">STAGING</span>
+        <span class="tab"><i></i>backoffice</span></div>
+      <div class="group g-prd"><span class="group-label g-prd">PRODUCTION</span>
+        <span class="tab active"><i></i>backoffice</span><span class="tab"><i></i>kibana</span></div>
+    </div>
     <div class="input"><span class="chip"><img src="{{ICON}}">Environment Links</span>backoffice<span class="caret"></span></div>
       <div class="row sel"><span class="dot d1"></span><span class="env">DEV</span><span class="url">backoffice.dev.example.com</span></div>
       <div class="row"><span class="dot d2"></span><span class="env">STAGING</span><span class="url">backoffice.staging.example.com</span></div>

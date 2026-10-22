@@ -2,6 +2,7 @@ import {
   DEFAULT_CONFIG, DEFAULT_SHARED_PATH, normalizeConfig, normalizeSource, expandLink, displayUrl, slug,
   resolveConfig, parseGitHubLocation, buildSharedFile, isEmptyConfig,
 } from "./core.js";
+import { GROUP_PERMISSION } from "./open.js";
 import {
   CONFIG_KEY, GITHUB_PERMISSION, loadCache, layersFor, loadTokens, setToken, syncSource, forgetRemovedSources,
 } from "./shared.js";
@@ -1118,6 +1119,7 @@ function render() {
   renderSources();
   renderShareBuilder();
   $("#open-in").value = config.openIn;
+  showGroupTabs();
 }
 
 $("#add-var").addEventListener("click", () => {
@@ -1143,6 +1145,35 @@ $("#add-link").addEventListener("click", () => {
 });
 
 $("#open-in").addEventListener("change", (e) => { config.openIn = e.target.value; scheduleSave(); });
+
+// Grouping tabs needs the optional "tabGroups" permission, asked for when it's turned on (Chrome
+// only shows the prompt during a click, so the request comes first) and given back when it's off.
+// There are two tickboxes for this setting, under Behaviour and in the tutorial; they stay in step.
+const groupTabBoxes = () => document.querySelectorAll(".group-tabs-input");
+const tickGroupTabs = (on) => groupTabBoxes().forEach((box) => (box.checked = on));
+groupTabBoxes().forEach((box) => box.addEventListener("change", async (e) => {
+  tickGroupTabs(e.target.checked);
+  if (e.target.checked) {
+    const granted = await chrome.permissions.request(GROUP_PERMISSION).catch(() => false);
+    if (!granted) {
+      tickGroupTabs(false);
+      return setStatus("Tab groups need Chrome's permission to manage tab groups.", "err");
+    }
+    config.groupTabs = true;
+    await saveNow(); // save first, so "Saved" doesn't replace the message below
+    setStatus("New links will open in a tab group per environment", "ok");
+  } else {
+    config.groupTabs = false;
+    chrome.permissions.remove(GROUP_PERMISSION).catch(() => {});
+    await saveNow();
+  }
+}));
+
+/** Ticked only when the setting is on and Chrome still has the permission. */
+async function showGroupTabs() {
+  const granted = await chrome.permissions.contains(GROUP_PERMISSION).catch(() => false);
+  tickGroupTabs(config.groupTabs && granted);
+}
 
 $("#export").addEventListener("click", () => {
   const blob = new Blob([JSON.stringify(config, null, 2) + "\n"], { type: "application/json" });

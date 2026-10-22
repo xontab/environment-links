@@ -175,3 +175,22 @@ test("a saved variable order applies to own and shared variables", () => {
   const ordered = normalizeConfig({ ...config, variableOrder: ["REGION", "DOMAIN"] });
   assert.deepEqual(resolveConfig(ordered, [layer(shared)]).variableNames, ["REGION", "DOMAIN", "ENVIRONMENT"]);
 });
+
+// ---- Tab groups ---------------------------------------------------------------------------
+
+import { tabGroupColor, environmentForUrl } from "../src/core.js";
+
+test("tab group colours follow environment names", () => {
+  assert.deepEqual(["DEV", "QA", "STAGING", "PREPROD", "PRODUCTION"].map((n) => tabGroupColor(n)),
+    ["green", "purple", "yellow", "orange", "red"]);
+  assert.notEqual(tabGroupColor("Sandbox", 0), tabGroupColor("Demo", 1));
+});
+
+test("finds the environment of a URL, including one with a path added", () => {
+  assert.equal(environmentForUrl(config, "https://backoffice.staging.example.com").id, "staging");
+  assert.equal(environmentForUrl(config, "https://backoffice.example.com/players/1").id, "production");
+  assert.equal(environmentForUrl(config, "https://backoffice.example.com.evil.io"), null);
+  assert.equal(environmentForUrl(config, "https://elsewhere.io"), null);
+  assert.equal(normalizeConfig({}).groupTabs, false);
+  assert.equal(normalizeConfig({ groupTabs: true }).groupTabs, true);
+});

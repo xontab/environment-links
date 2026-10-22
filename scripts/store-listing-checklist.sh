@@ -24,7 +24,7 @@ else
 fi
 has() { grep -qxF "$1" <<<"$changed"; }
 
-permissions() { jq -c '{permissions, optional_host_permissions, host_permissions} | with_entries(select(.value != null))'; }
+permissions() { jq -c '{permissions, optional_permissions, host_permissions, optional_host_permissions} | with_entries(select(.value != null))'; }
 perm_now="$(permissions <manifest.json)"
 perm_before="$( [ -n "$prev" ] && git show "$prev:manifest.json" 2>/dev/null | permissions || echo '{}')"
 
