@@ -104,7 +104,7 @@
               <p>Press <kbd class="popup-shortcut">Not set</kbd> on any page, or click the extension's icon, for every link with a
                 button per environment. Type to search, use the arrow keys to choose, and press <kbd>Enter</kbd>. You can change
                 the shortcut, and pin the icon from Chrome's puzzle-piece menu.</p>
-              <button type="button" class="slide-cta" data-action="shortcut">Change shortcut</button>
+              <button type="button" class="primary slide-cta" data-action="shortcut">Change shortcut</button>
             </div>
           </article>
 
@@ -121,12 +121,12 @@
             </div>
             <div class="slide-text">
               <span class="step-num">5</span>
-              <h3>Keep each environment's tabs together <span class="muted">(optional)</span></h3>
+              <h3>Keep each environment's tabs together</h3>
               <p>Turn on tab groups and every link you open joins a group named after its environment, coloured to match:
                 production red, staging yellow, dev green. It's easy to see which tabs are production at a glance.</p>
               <label class="slide-toggle">
-                <input type="checkbox" class="group-tabs-input" aria-label="Put links in a tab group per environment">
-                <span>Put links in a tab group per environment</span>
+                <input type="checkbox" class="group-tabs-input" aria-label="Put links in a tab group per environment, for the current group">
+                <span>Put links in a tab group per environment <span class="muted current-group-note">(for the current group)</span></span>
               </label>
             </div>
           </article>
@@ -143,10 +143,10 @@
             </div>
             <div class="slide-text">
               <span class="step-num">6</span>
-              <h3>Share with your team <span class="muted">(optional)</span></h3>
+              <h3>Share with your team</h3>
               <p>Commit a links file to a GitHub repository, then add it in <strong>Shared links</strong>. Everyone who adds it gets
                 the same links, environments and variables, and anything you set yourself still wins.</p>
-              <button type="button" class="slide-cta" data-action="sharing">Go to Shared links</button>
+              <button type="button" class="primary slide-cta" data-action="sharing">Go to Shared links</button>
             </div>
           </article>
         </div>
@@ -180,8 +180,8 @@
           <p class="muted">Each row is an environment and each column a variable. A blank cell uses the value in the <em>Default</em> row.</p>
         </div>
         <div class="actions">
-          <button id="add-var" type="button">+ Variable</button>
-          <button id="add-env" type="button">+ Environment</button>
+          <button id="add-var" type="button" class="primary">+ Variable</button>
+          <button id="add-env" type="button" class="primary">+ Environment</button>
         </div>
       </div>
       <div class="table-wrap"><table id="vars" class="grid"></table></div>
@@ -202,11 +202,11 @@
           <h2><svg class="h-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg>Links<a href="#tutorial" class="help-link" data-tutorial-step="2" title="Show how links work in the tutorial" aria-label="How links work (opens the tutorial)"></a></h2>
           <p class="muted">In the URL template, put a variable's name in double braces, as <code>{{NAME}}</code>. Each
             environment fills in its own value from the <a href="#vars-section">Environments</a> section.</p>
-          <p class="muted"><code>https://</code> is added if you leave it out.</p>
           <p class="muted">While you edit a link, its URL for every environment is shown below it. Type in an environment's box to use
             a different URL there.</p>
+          <p class="muted"><code>https://</code> is added if you leave it out.</p>
         </div>
-        <div class="actions"><button id="add-link" type="button">+ Link</button></div>
+        <div class="actions"><button id="add-link" type="button" class="primary">+ Link</button></div>
       </div>
       <div id="links"></div>
       <div id="shared-links"></div>

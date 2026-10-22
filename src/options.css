@@ -146,9 +146,13 @@ table.grid { border-collapse: collapse; width: 100%; }
 .link-row .toggle[aria-expanded="true"] svg { transform: rotate(90deg); }
 @media (prefers-reduced-motion: reduce) { .link-row .toggle svg { transition: none; } }
 .link-details { border-top: 1px solid var(--border); padding: 15px 30px; display: none; }
-.link.open .link-details { display: block; }
-.env-row { display: grid; grid-template-columns: minmax(80px, 120px) 1fr; gap: 4px 12px; align-items: center; margin-bottom: 8px; padding-top: 10px; }
-.env-row:has(.applies) { grid-template-columns: minmax(80px, 120px) 1fr auto; }
+/* The environment rows share one set of columns (a subgrid), so the name column fits the longest
+   name, up to 240px, and every row's box still lines up. */
+.link.open .link-details { display: grid; grid-template-columns: fit-content(240px) 1fr auto; column-gap: 12px; }
+.link-details > * { grid-column: 1 / -1; }
+.env-row {
+  display: grid; grid-template-columns: subgrid; gap: 4px 12px; align-items: center; margin-bottom: 8px; padding-top: 10px;
+}
 .env-row .applies { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); cursor: pointer; white-space: nowrap; }
 .env-row .applies input { margin: 0; }
 /* A link that doesn't apply to an environment: the row fades and its override can't be edited. */
@@ -186,6 +190,7 @@ table.grid { border-collapse: collapse; width: 100%; }
   .link-row { grid-template-columns: 28px 1fr auto; }
   .link-row .template { grid-column: 2 / 4; grid-row: 2; }
   .link-details { padding-left: 8px; }
+  .link.open .link-details { display: block; }
   .env-row { grid-template-columns: 1fr; }
   .env-row:has(.applies) { grid-template-columns: 1fr auto; }
   .env-row .applies { grid-column: 2; grid-row: 1; }

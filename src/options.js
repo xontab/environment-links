@@ -140,6 +140,11 @@ const focusGroupTab = (id) => $(`#group-tabs [role=tab][data-group="${CSS.escape
 function renderGroups() {
   const several = settings.groups.length > 1;
   closeGroupMenu();
+  // The tutorial's tab groups tickbox is for the group being edited; with several, it names it.
+  const note = several ? `(for the ${config.name} group)` : "(for the current group)";
+  document.querySelectorAll(".current-group-note").forEach((n) => (n.textContent = note));
+  document.querySelector(".slide-toggle .group-tabs-input")
+    ?.setAttribute("aria-label", `Put links in a tab group per environment, ${note.slice(1, -1)}`);
   $("#group-tabs").replaceChildren(...effectiveAll.groups.map((resolved, i) => {
     const group = settings.groups[i];
     const selected = group.id === config.id;
