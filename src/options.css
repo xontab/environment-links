@@ -497,6 +497,7 @@ button:has(> .btn-icon) { display: inline-flex; align-items: center; gap: 6px; }
 .keycaps kbd.unset { color: var(--muted); font-style: italic; box-shadow: none; border-style: dashed; }
 .shortcut-note { font-size: 13px; }
 .shortcut > button { justify-self: start; }
+.shortcut-actions { justify-self: start; display: inline-flex; align-items: center; gap: 8px; }
 @media (max-width: 640px) {
   .shortcuts { grid-template-columns: 1fr; }
   .shortcut-name { margin-top: 6px; }
@@ -513,7 +514,12 @@ button:has(> .btn-icon) { display: inline-flex; align-items: center; gap: 6px; }
 .source-heading a { color: var(--accent); }
 .toggle-setting { margin: 0 0 10px; }
 .toggle-setting input { width: 16px; height: 16px; flex: none; }
-#vars-section > .toggle-setting { margin: 14px 0 0; } /* under the grid, for the group being edited */
+/* A setting with an ⓘ that opens its tutorial step. The ⓘ sits outside the label, so clicking it
+   doesn't tick the box. */
+.setting-row { display: flex; align-items: center; gap: 6px; }
+h2 .help-link { margin-left: -2px; } /* right after the heading's text */
+.setting-row .toggle-setting { margin: 0; }
+#vars-section > .setting-row { margin: 14px 0 0; } /* under the grid, for the group being edited */
 
 /* A setting's tickbox on a tutorial slide */
 .slide-toggle {
@@ -545,7 +551,7 @@ button:has(> .btn-icon) { display: inline-flex; align-items: center; gap: 6px; }
 .group-tab.drop-before { box-shadow: inset 2px 0 0 var(--accent); }
 .group-tab.drop-after { box-shadow: inset -2px 0 0 var(--accent); }
 .group-tab [role=tab] {
-  display: inline-flex; align-items: center; gap: 8px; padding: 8px 6px 8px 12px;
+  display: inline-flex; align-items: center; gap: 8px; padding: 8px 10px 8px 12px;
   border: 0; border-radius: 8px 8px 0 0; background: none; color: var(--muted); font-weight: 600;
 }
 .group-tab [role=tab]:hover { color: var(--text); background: color-mix(in srgb, var(--accent) 6%, transparent); }
@@ -555,12 +561,15 @@ button:has(> .btn-icon) { display: inline-flex; align-items: center; gap: 6px; }
   background: var(--code-bg); color: var(--muted);
 }
 .group-tab.selected .count { background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); }
+/* The ⋯ takes the link count's place while the tab is hovered, reached with the keyboard or has its
+   menu open, so it needs no room of its own: centred over the count, which is hidden meanwhile. */
 .group-tab .more {
-  display: inline-grid; place-items: center; width: 26px; height: 26px; margin-right: 4px; padding: 0;
-  border: 0; border-radius: 6px; background: none; color: var(--muted);
+  position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+  display: inline-grid; place-items: center; width: 24px; height: 22px; padding: 0;
+  border: 0; border-radius: 6px; background: var(--surface); color: var(--muted); opacity: 0; pointer-events: none;
 }
-.group-tab:not(.selected) .more { opacity: 0; }
-.group-tab:hover .more, .group-tab .more:focus-visible, .group-tab .more[aria-expanded="true"] { opacity: 1; }
+.group-tab:hover .more, .group-tab:has(:focus-visible) .more, .group-tab .more[aria-expanded="true"] { opacity: 1; pointer-events: auto; }
+.group-tab:hover .count, .group-tab:has(:focus-visible) .count, .group-tab:has(.more[aria-expanded="true"]) .count { visibility: hidden; }
 .group-tab .more:hover, .group-tab .more[aria-expanded="true"] { background: var(--code-bg); color: var(--text); }
 .group-tab .rename { width: 180px; margin: 4px 6px 5px; font-weight: 600; }
 .group-add {

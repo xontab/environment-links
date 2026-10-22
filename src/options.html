@@ -174,7 +174,7 @@
     <section id="vars-section">
       <div class="section-head">
         <div>
-          <h2><svg class="h-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 9 5-9 5-9-5z"/><path d="m3 13 9 5 9-5"/><path d="m3 17.5 9 5 9-5"/></svg>Environments</h2>
+          <h2><svg class="h-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 9 5-9 5-9-5z"/><path d="m3 13 9 5 9-5"/><path d="m3 17.5 9 5 9-5"/></svg>Environments<a href="#tutorial" class="help-link" data-tutorial-step="1" title="Show how environments and variables work in the tutorial" aria-label="How environments and variables work (opens the tutorial)"></a></h2>
           <p class="muted">Variables hold the parts of a URL that change from one environment to the next, such as its name or
             domain. Set them once here, and every <a href="#links-section">link</a> fills them in for each environment, so you write each link only once.</p>
           <p class="muted">Each row is an environment and each column a variable. A blank cell uses the value in the <em>Default</em> row.</p>
@@ -185,17 +185,21 @@
         </div>
       </div>
       <div class="table-wrap"><table id="vars" class="grid"></table></div>
-      <label class="inline toggle-setting">
-        <input id="group-tabs-setting" class="group-tabs-input" type="checkbox">
-        <span>Put this group's links in a tab group per environment
-          <span class="muted">(e.g. all PRODUCTION tabs in a <span class="mg-group g-prd group-chip">PRODUCTION</span> group)</span></span>
-      </label>
+      <div class="setting-row">
+        <label class="inline toggle-setting">
+          <input id="group-tabs-setting" class="group-tabs-input" type="checkbox">
+          <span>Put this group's links in a tab group per environment
+            <span class="muted">(e.g. all PRODUCTION tabs in a <span class="mg-group g-prd group-chip">PRODUCTION</span> group)</span></span>
+        </label>
+        <a href="#tutorial" class="help-link" data-tutorial-step="5" title="Show how tab groups work in the tutorial"
+          aria-label="How tab groups work (opens the tutorial)"></a>
+      </div>
     </section>
 
     <section id="links-section">
       <div class="section-head">
         <div>
-          <h2><svg class="h-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg>Links</h2>
+          <h2><svg class="h-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg>Links<a href="#tutorial" class="help-link" data-tutorial-step="2" title="Show how links work in the tutorial" aria-label="How links work (opens the tutorial)"></a></h2>
           <p class="muted">In the URL template, put a variable's name in double braces, as <code>{{NAME}}</code>. Each
             environment fills in its own value from the <a href="#vars-section">Environments</a> section.</p>
           <p class="muted"><code>https://</code> is added if you leave it out.</p>
@@ -209,7 +213,7 @@
     </section>
 
     <section id="sharing">
-      <h2><svg class="h-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7"/><path d="M18 14a6.5 6.5 0 0 1 3.5 6"/></svg>Shared links</h2>
+      <h2><svg class="h-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7"/><path d="M18 14a6.5 6.5 0 0 1 3.5 6"/></svg>Shared links<a href="#tutorial" class="help-link" data-tutorial-step="6" title="Show how Shared links work in the tutorial" aria-label="How Shared links work (opens the tutorial)"></a></h2>
       <p class="muted">Pull links from a JSON file in a GitHub repository so your team keeps one list. The file can also set
         environments and variables. Anything you set yourself wins: your own links, names and values are used over the shared ones.
         Shared links are synced when Chrome starts, every hour, and when you click <em>Sync now</em>.</p>
@@ -248,7 +252,11 @@
         <div class="shortcut">
           <span class="shortcut-name">Toolbar list</span>
           <span class="keycaps popup-keycaps"><kbd class="unset">Not set</kbd></span>
-          <button id="change-shortcut" type="button">Change shortcut</button>
+          <span class="shortcut-actions">
+            <button id="change-shortcut" type="button">Change shortcut</button>
+            <a href="#tutorial" class="help-link" data-tutorial-step="4" title="Show the toolbar list and its shortcut in the tutorial"
+              aria-label="How the toolbar list and its shortcut work (opens the tutorial)"></a>
+          </span>
         </div>
       </div>
       <label class="inline">Pressing Enter opens the link in

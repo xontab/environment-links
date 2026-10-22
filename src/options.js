@@ -1382,6 +1382,21 @@ const slideActions = {
   shortcut: () => { chrome.tabs.create({ url: "chrome://extensions/shortcuts" }); },
   sharing: () => { $("#sharing").scrollIntoView({ block: "start" }); $("#source-location").focus({ preventScroll: true }); },
 };
+// An ⓘ next to a section or setting (data-tutorial-step="5") opens the tutorial at the step about it.
+const INFO_ICON = `<svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" fill="none" stroke="currentColor"
+  stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5"/><path d="M12 8h.01"/></svg>`;
+document.querySelectorAll("[data-tutorial-step]").forEach((link) => (link.innerHTML = INFO_ICON)); // static markup
+document.addEventListener("click", (e) => {
+  const link = e.target.closest("[data-tutorial-step]");
+  if (!link) return;
+  e.preventDefault();
+  const tutorial = $("#tutorial");
+  tutorial.open = true;
+  goToSlide(Number(link.dataset.tutorialStep) - 1); // laid out now that it's open
+  window.scrollTo({ top: tutorial.getBoundingClientRect().top + window.scrollY - stickyHeight() - 16 });
+  slides[currentSlide].querySelector("input, button, a")?.focus({ preventScroll: true });
+});
+
 track.addEventListener("click", (e) => {
   const action = e.target.closest("[data-action]")?.dataset.action;
   if (action) slideActions[action]?.();
