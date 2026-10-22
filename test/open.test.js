@@ -28,7 +28,8 @@ globalThis.chrome = {
 const { openLink } = await import("../src/open.js");
 
 const env = (id, name) => ({ id, name });
-const config = { groupTabs: true, environments: [env("dev", "DEV"), env("production", "PRODUCTION")] };
+const group = { id: "default", name: "Default", environments: [env("dev", "DEV"), env("production", "PRODUCTION")] };
+const config = { groupTabs: true, groups: [group] };
 
 beforeEach(() => {
   tabs = [{ id: 1, url: "about:blank", active: true, windowId: 1, groupId: -1 }];
@@ -38,21 +39,21 @@ beforeEach(() => {
 });
 
 test("creates a coloured group named after the environment, then reuses it", async () => {
-  const first = await openLink("https://a.prod", "newForegroundTab", env("production", "PRODUCTION"), config);
+  const first = await openLink("https://a.prod", "newForegroundTab", env("production", "PRODUCTION"), config, group);
   assert.equal(groups.length, 1);
   assert.deepEqual({ title: groups[0].title, color: groups[0].color }, { title: "PRODUCTION", color: "red" });
   assert.equal(first.groupId, groups[0].id);
 
-  const second = await openLink("https://b.prod", "newBackgroundTab", env("production", "PRODUCTION"), config);
+  const second = await openLink("https://b.prod", "newBackgroundTab", env("production", "PRODUCTION"), config, group);
   assert.equal(groups.length, 1); // same group
   assert.equal(second.groupId, groups[0].id);
 
-  await openLink("https://a.dev", "newForegroundTab", env("dev", "DEV"), config);
+  await openLink("https://a.dev", "newForegroundTab", env("dev", "DEV"), config, group);
   assert.deepEqual(groups.map((g) => `${g.title}:${g.color}`), ["PRODUCTION:red", "DEV:green"]);
 });
 
 test("the current tab is updated in place and moved into the group", async () => {
-  const tab = await openLink("https://a.dev", "currentTab", env("dev", "DEV"), config);
+  const tab = await openLink("https://a.dev", "currentTab", env("dev", "DEV"), config, group);
   assert.equal(tab.id, 1);
   assert.equal(tabs.length, 1);
   assert.equal(tab.url, "https://a.dev");
@@ -60,11 +61,17 @@ test("the current tab is updated in place and moved into the group", async () =>
 });
 
 test("no grouping when the setting is off, the permission is missing, or the environment is unknown", async () => {
-  await openLink("https://x", "newForegroundTab", env("dev", "DEV"), { ...config, groupTabs: false });
+  await openLink("https://x", "newForegroundTab", env("dev", "DEV"), { ...config, groupTabs: false }, group);
   granted = false;
-  await openLink("https://y", "newForegroundTab", env("dev", "DEV"), config);
+  await openLink("https://y", "newForegroundTab", env("dev", "DEV"), config, group);
   granted = true;
-  await openLink("https://z", "newForegroundTab", null, config);
+  await openLink("https://z", "newForegroundTab", null, config, group);
   assert.equal(groups.length, 0);
   assert.equal(tabs.length, 4); // the links still opened
+});
+
+test("with several environment groups, the tab group is named after both", async () => {
+  const pay = { id: "pay", name: "Payments", environments: [env("qa", "QA")] };
+  await openLink("https://qa.pay", "newForegroundTab", env("qa", "QA"), { groupTabs: true, groups: [group, pay] }, pay);
+  assert.deepEqual(groups.map((g) => `${g.title}:${g.color}`), ["Payments · QA:purple"]);
 });

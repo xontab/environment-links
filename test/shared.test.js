@@ -38,7 +38,7 @@ test("syncs a file and serves its links through the effective config", async () 
   assert.equal(requests[0].headers.Accept, "application/vnd.github.raw+json");
   assert.equal(requests[0].headers.Authorization, undefined);
   const eff = await loadEffectiveConfig();
-  assert.deepEqual(eff.links.map((l) => [l.key, l.source]), [["grafana", "acme/links"]]);
+  assert.deepEqual(eff.groups[0].links.map((l) => [l.key, l.source]), [["grafana", "acme/links"]]);
 });
 
 test("sends the saved token and the ETag, and keeps the copy on 304", async () => {

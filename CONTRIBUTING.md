@@ -19,7 +19,10 @@ npm test
 ### Two configs: the user's own and the effective one
 
 - `config` is what the user set, saved in `chrome.storage.sync` under `"config"`. It's the only thing the settings page ever saves.
-- `resolveConfig(config, layers)` lays shared files underneath it to produce the **effective** config, which the address bar, popup and previews use. It's never saved.
+- It holds the behaviour settings (`openIn`, `groupTabs`), the shared `sources`, and `groups`: **environment groups**, each with its own `variableNames`, `globals`, `environments`, `links`, `environmentOrder` and `variableOrder`. There's always at least one. `normalizeConfig` turns a config from before groups (those fields at the top level) into one group called Default.
+- Each source feeds one group (`source.group`; `sourceGroupId()` falls back to the first group). A shared file has the shape of one group.
+- `resolveConfig(config, layers)` lays shared files underneath each group (`resolveGroup`) to produce the **effective** config, which the address bar, popup and previews use. It's never saved. `search()` covers every group; a filter word that starts a group's name picks that group.
+- On the settings page, `settings` is the saved config and `config` / `effective` are the group being edited, so the Variables, Links and Shared links code works on one group.
 - Editing a shared environment creates the user's own entry with the same `id`. Shared items are never changed in place.
 - Variable precedence, lowest first: shared default, own default, shared environment value, own environment value.
 - Own links win over shared links with the same name (case-insensitive). With several sources, the first one wins.
@@ -29,7 +32,7 @@ npm test
 
 - `chrome.storage.sync` → `config`. Chrome limits one synced item to about 8 KB.
 - `chrome.storage.local` → `shared` (the last good copy of each shared file, with its ETag) and `tokens` (GitHub tokens). Tokens must never go into `sync` or the JSON export.
-- `localStorage` → only `tutorial-hidden`, which is a convenience. Wrap any use in `try`.
+- `localStorage` → only `tutorial-hidden` and `current-group` (the group the settings page shows), which are conveniences. Wrap any use in `try`.
 
 ### Things that look changeable but aren't
 
@@ -60,6 +63,7 @@ python3 scripts/build-assets.py
 This renders the icons and every image in `store/` from `store/source/` with headless Google Chrome:
 
 - The settings page and popup screenshots use the real pages, run against a fake `chrome` API with sample data from the script. Add `?shared` to the page URL for a synced shared file (screenshot 5), or `#id` to scroll to a section.
+- The icons come from `store/source/icon.svg`, except the sizes with their own drawing on the pixel grid: `icon-16.svg` and `icon-32.svg` for the toolbar, and `icon-96.svg` for the 128px icon (96px of artwork inside 16px of padding). Change those together.
 - The tutorial is forced closed so it doesn't cover the screenshots. (With an empty setup it opens anyway, but the sample data isn't empty.)
 - Headless Chrome won't make a window narrower than about 500px, so small images are rendered larger and cropped by the script.
 - The popup is 400px wide. Frame it at exactly that width or the screenshot gets a blank strip.
@@ -182,4 +186,13 @@ CWS_PUBLISHER_ID=… CWS_EXTENSION_ID=… scripts/publish-chrome-web-store.sh en
 ```
 
 If a run fails, the error in the log says why: the service account isn't added to the publisher, a version that isn't higher than the store's, or a failed review check. Fix it, then re-run the workflow. Nothing is tagged until the submission succeeds, so a re-run tries again.
+
+### When another version is still in review
+
+The store refuses uploads, and submissions, while a version is in review. The workflow doesn't fail then: it still tags the commit and creates the GitHub release, and the release notes start with a warning that this version may not be on the Chrome Web Store yet, followed by what to do once the review ends:
+
+- **The upload was refused:** upload the attached `environment-links.zip` in the Developer Dashboard and click **Submit for review**.
+- **The upload worked but submitting was refused:** click **Submit for review** in the dashboard.
+
+Because the version is tagged, re-running the workflow won't retry it. Upload it by hand as above, or release the next version instead. Run locally, `scripts/publish-chrome-web-store.sh` still fails in this case unless you set `CWS_ALLOW_IN_REVIEW=true`.
 

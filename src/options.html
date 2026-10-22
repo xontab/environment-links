@@ -162,12 +162,22 @@
       </div>
     </details>
 
+    <!-- Variables, Links and Shared links belong to the environment group picked in these tabs. -->
+    <div id="groups" class="group-panel">
+      <div class="group-bar">
+        <div id="group-tabs" class="group-tabs" role="tablist" aria-label="Environment groups"></div>
+        <button id="add-group" type="button" class="group-add"
+          title="Add an environment group: a separate set of variables, environments, links and Shared links">New group</button>
+      </div>
+      <div id="group-panel" role="tabpanel">
+
     <section id="vars-section">
       <div class="section-head">
         <div>
           <h2><svg class="h-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 4H7a2 2 0 0 0-2 2v4l-2 2 2 2v4a2 2 0 0 0 2 2h1"/><path d="M16 4h1a2 2 0 0 1 2 2v4l2 2-2 2v4a2 2 0 0 1-2 2h-1"/></svg>Variables</h2>
+          <p class="muted">Variables hold the parts of a URL that change from one environment to the next, such as its name or
+            domain. Set them once here, and every link fills them in for each environment, so you write each link only once.</p>
           <p class="muted">Each row is an environment and each column a variable. A blank cell uses the value in the <em>Default</em> row.</p>
-          <p class="muted">Use them in templates as <code>{{NAME}}</code>.</p>
         </div>
         <div class="actions">
           <button id="add-var" type="button">+ Variable</button>
@@ -181,12 +191,11 @@
       <div class="section-head">
         <div>
           <h2><svg class="h-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg>Links</h2>
-          <p class="muted">In the URL template, put a variable's name in double braces, like <code>{{ENVIRONMENT}}</code> or
-            <code>{{DOMAIN}}</code>. Each environment fills in its own value from <a href="#vars-section">Variables</a>, so
-            <code>backoffice.{{ENVIRONMENT}}.{{DOMAIN}}</code> becomes <code>backoffice.dev.example.com</code> for DEV.
+          <p class="muted">In the URL template, put a variable's name in double braces, as <code>{{NAME}}</code>. Each
+            <a href="#vars-section">environment</a> fills in its own value from <a href="#vars-section">Variables</a>.
             <code>https://</code> is added if you leave it out.</p>
           <p class="muted">While you edit a link, its URL for every environment is shown below it. Type in an environment's box to use
-            a different URL there, e.g. production without the <code>{{ENVIRONMENT}}.</code> part.</p>
+            a different URL there.</p>
         </div>
         <div class="actions"><button id="add-link" type="button">+ Link</button></div>
       </div>
@@ -220,6 +229,9 @@
       </details>
     </section>
 
+      </div>
+    </div>
+
     <section id="behaviour">
       <h2><svg class="h-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>Behaviour</h2>
       <div class="shortcuts">
@@ -249,7 +261,8 @@
       <p class="info" role="note">
         <svg class="info-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none"
           stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5"/><path d="M12 8h.01"/></svg>
-        <span><kbd>Alt</kbd>+<kbd>Enter</kbd> (new tab) still works with all behaviour options.</span>
+        <span><span class="keycaps" aria-label="Alt plus Enter"><kbd>Alt</kbd><span class="then plus">+</span><kbd>Enter</kbd></span>
+          (new tab) still works with all behaviour options.</span>
       </p>
     </section>
 
@@ -265,7 +278,6 @@
       <div class="actions">
         <button id="export" type="button">Export to file</button>
         <button id="import" type="button" class="primary">Import from text</button>
-        <button id="reset" type="button" class="danger">Clear my settings</button>
       </div>
     </section>
   </main>

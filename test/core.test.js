@@ -73,8 +73,8 @@ test("descriptions are XML-escaped", () => {
 
 test("normalizeConfig collects variable names from values", () => {
   const cfg = normalizeConfig({ globals: { A: 1 }, environments: [{ name: "Dev", variables: { B: 2 } }] });
-  assert.deepEqual(cfg.variableNames, ["A", "B"]);
-  assert.equal(cfg.environments[0].id, "dev");
+  assert.deepEqual(cfg.groups[0].variableNames, ["A", "B"]);
+  assert.equal(cfg.groups[0].environments[0].id, "dev");
   assert.deepEqual(parseQuery("  x  y "), { term: "x", envFilters: ["y"], path: "" });
 });
 
@@ -97,23 +97,23 @@ const layer = (data, repo = "acme/links") => ({ source: normalizeSource({ repo }
 
 test("shared links are added after your own, and your own win on name clashes", () => {
   const eff = resolveConfig(config, [layer(team)]);
-  assert.deepEqual(eff.links.map((l) => `${l.key}${l.source ? "@" + l.source : ""}`), ["backoffice", "grafana@acme/links"]);
-  assert.equal(eff.sharedLinks.find((l) => l.key === "backoffice").shadowed, true);
+  assert.deepEqual(eff.groups[0].links.map((l) => `${l.key}${l.source ? "@" + l.source : ""}`), ["backoffice", "grafana@acme/links"]);
+  assert.equal(eff.groups[0].sharedLinks.find((l) => l.key === "backoffice").shadowed, true);
 });
 
 test("variable precedence: shared default < own default < shared env < own env", () => {
   const eff = resolveConfig(config, [layer(team)]);
-  const env = (id) => eff.environments.find((e) => e.id === id);
+  const env = (id) => eff.groups[0].environments.find((e) => e.id === id);
   assert.equal(env("staging").variables.DOMAIN, "example.com"); // own default beats shared default
   assert.equal(env("staging").variables.REGION, "eu"); // only the shared default has it
   assert.equal(env("dev").variables.DOMAIN, "dev.team.io"); // shared env value beats own default
   assert.equal(env("dev").name, "DEV"); // own name wins
   assert.equal(env("qa").source, "acme/links"); // environment only in the shared file is added
-  assert.deepEqual(eff.environments.map((e) => e.id), ["dev", "staging", "preprod", "production", "qa"]);
+  assert.deepEqual(eff.groups[0].environments.map((e) => e.id), ["dev", "staging", "preprod", "production", "qa"]);
 
-  const own = normalizeConfig({ ...config, environments: [{ id: "dev", name: "DEV", variables: { DOMAIN: "mine.dev" } }] });
-  assert.equal(resolveConfig(own, [layer(team)]).environments[0].variables.DOMAIN, "mine.dev");
-  assert.equal(resolveConfig(own, [layer(team)]).environments[0].inherited.DOMAIN, "dev.team.io");
+  const own = normalizeConfig({ ...EXAMPLE, environments: [{ id: "dev", name: "DEV", variables: { DOMAIN: "mine.dev" } }] });
+  assert.equal(resolveConfig(own, [layer(team)]).groups[0].environments[0].variables.DOMAIN, "mine.dev");
+  assert.equal(resolveConfig(own, [layer(team)]).groups[0].environments[0].inherited.DOMAIN, "dev.team.io");
 });
 
 test("shared links render through search like any other", () => {
@@ -124,8 +124,8 @@ test("shared links render through search like any other", () => {
 test("earlier sources win over later ones", () => {
   const other = parseSharedFile(JSON.stringify({ links: [{ key: "grafana", template: "other.io" }] }));
   const eff = resolveConfig(config, [layer(team), layer(other, "other/links")]);
-  assert.equal(eff.links.find((l) => l.key === "grafana").source, "acme/links");
-  assert.equal(resolveConfig(config, [layer(null)]).links.length, 1); // never synced yet
+  assert.equal(eff.groups[0].links.find((l) => l.key === "grafana").source, "acme/links");
+  assert.equal(resolveConfig(config, [layer(null)]).groups[0].links.length, 1); // never synced yet
 });
 
 test("parseSharedFile rejects bad files", () => {
@@ -149,31 +149,31 @@ test("buildSharedFile exports only the chosen links and the variables they use",
     globals: { DOMAIN: "example.com", SECRET_HOST: "me.local" },
     links: [...EXAMPLE.links, { key: "mine", template: "{{SECRET_HOST}}/x" }],
   });
-  const file = buildSharedFile(cfg, ["backoffice"]);
+  const file = buildSharedFile(cfg.groups[0], ["backoffice"]);
   assert.deepEqual(file.links.map((l) => l.key), ["backoffice"]);
   assert.deepEqual(file.globals, { DOMAIN: "example.com" });
   assert.deepEqual(file.variableNames, ["ENVIRONMENT", "DOMAIN"]);
   assert.equal(file.environments[0].variables.ENVIRONMENT, "dev");
-  assert.deepEqual(Object.keys(buildSharedFile(cfg, ["backoffice"], { includeValues: false })), ["links"]);
+  assert.deepEqual(Object.keys(buildSharedFile(cfg.groups[0], ["backoffice"], { includeValues: false })), ["links"]);
   // Round trip: the exported file is a valid shared file.
   assert.equal(parseSharedFile(JSON.stringify(file)).links[0].template, "backoffice.{{ENVIRONMENT}}.{{DOMAIN}}");
 });
 
 test("a saved environment order applies to own and shared environments alike", () => {
-  const ordered = normalizeConfig({ ...config, environmentOrder: ["qa", "production", "dev"] });
-  const ids = resolveConfig(ordered, [layer(team)]).environments.map((e) => e.id);
+  const ordered = normalizeConfig({ ...EXAMPLE, environmentOrder: ["qa", "production", "dev"] });
+  const ids = resolveConfig(ordered, [layer(team)]).groups[0].environments.map((e) => e.id);
   // Listed ids first, in that order; the rest keep their usual place after them.
   assert.deepEqual(ids, ["qa", "production", "dev", "staging", "preprod"]);
   assert.deepEqual(search("back", resolveConfig(ordered, [layer(team)])).map((r) => r.env.id).slice(0, 2), ["qa", "production"]);
-  assert.deepEqual(normalizeConfig({ environmentOrder: ["a", "a", 3] }).environmentOrder, ["a", "3"]);
+  assert.deepEqual(normalizeConfig({ environmentOrder: ["a", "a", 3] }).groups[0].environmentOrder, ["a", "3"]);
 });
 
 test("a saved variable order applies to own and shared variables", () => {
   const shared = parseSharedFile(JSON.stringify({ variableNames: ["REGION"], globals: { REGION: "eu" }, links: [{ key: "x", template: "x" }] }));
-  const plain = resolveConfig(config, [layer(shared)]).variableNames;
+  const plain = resolveConfig(config, [layer(shared)]).groups[0].variableNames;
   assert.deepEqual(plain, ["ENVIRONMENT", "DOMAIN", "REGION"]);
-  const ordered = normalizeConfig({ ...config, variableOrder: ["REGION", "DOMAIN"] });
-  assert.deepEqual(resolveConfig(ordered, [layer(shared)]).variableNames, ["REGION", "DOMAIN", "ENVIRONMENT"]);
+  const ordered = normalizeConfig({ ...EXAMPLE, variableOrder: ["REGION", "DOMAIN"] });
+  assert.deepEqual(resolveConfig(ordered, [layer(shared)]).groups[0].variableNames, ["REGION", "DOMAIN", "ENVIRONMENT"]);
 });
 
 // ---- Tab groups ---------------------------------------------------------------------------
@@ -187,10 +187,105 @@ test("tab group colours follow environment names", () => {
 });
 
 test("finds the environment of a URL, including one with a path added", () => {
-  assert.equal(environmentForUrl(config, "https://backoffice.staging.example.com").id, "staging");
-  assert.equal(environmentForUrl(config, "https://backoffice.example.com/players/1").id, "production");
+  assert.equal(environmentForUrl(config, "https://backoffice.staging.example.com").env.id, "staging");
+  assert.equal(environmentForUrl(config, "https://backoffice.example.com/players/1").env.id, "production");
   assert.equal(environmentForUrl(config, "https://backoffice.example.com.evil.io"), null);
   assert.equal(environmentForUrl(config, "https://elsewhere.io"), null);
   assert.equal(normalizeConfig({}).groupTabs, false);
   assert.equal(normalizeConfig({ groupTabs: true }).groupTabs, true);
+});
+
+// ---- Environment groups -------------------------------------------------------------------
+
+import { tabGroupTitle, sourceGroupId } from "../src/core.js";
+
+// Two groups for different purposes, each with its own variables, environments and links.
+const GROUPS = normalizeConfig({
+  groups: [
+    {
+      id: "pam", name: "PAM", variableNames: ["ENV"],
+      environments: [{ id: "dev", name: "DEV", variables: { ENV: "dev" } }, { id: "prod", name: "PRODUCTION", variables: { ENV: "prod" } }],
+      links: [{ key: "backoffice", template: "bo.{{ENV}}.pam.com" }],
+    },
+    {
+      id: "payments", name: "Payments", globals: { HOST: "pay.com" },
+      environments: [{ id: "qa", name: "QA", variables: { ENV: "qa" } }, { id: "live", name: "LIVE", variables: { ENV: "live" } }],
+      links: [{ key: "backoffice", template: "bo.{{ENV}}.{{HOST}}" }, { key: "wallet", template: "wallet.{{ENV}}.{{HOST}}" }],
+    },
+  ],
+  sources: [{ repo: "acme/pay", group: "payments" }, { repo: "acme/any" }],
+});
+
+test("a config from before groups becomes one group, keeping everything", () => {
+  assert.deepEqual(config.groups.map((g) => [g.id, g.name, g.environments.length, g.links.length]), [["default", "Default", 4, 1]]);
+  assert.equal(config.openIn, "currentTab");
+  assert.equal(normalizeConfig({}).groups.length, 1); // there's always a group to add things to
+  assert.deepEqual(normalizeConfig({ groups: [{ name: "A" }, { name: "a" }] }).groups.map((g) => g.id), ["a", "a-2"]);
+});
+
+test("a link expands only to its own group's environments", () => {
+  const found = (q) => search(q, GROUPS).map((r) => `${r.group.name}/${r.env.name}=${r.url}`);
+  assert.deepEqual(found("wallet"), ["Payments/QA=https://wallet.qa.pay.com", "Payments/LIVE=https://wallet.live.pay.com"]);
+  assert.equal(found("backoffice").length, 4);
+});
+
+test("typing a group's name narrows to that group, alongside environment filters", () => {
+  assert.deepEqual(search("backoffice payments", GROUPS).map((r) => r.url), ["https://bo.qa.pay.com", "https://bo.live.pay.com"]);
+  assert.deepEqual(search("backoffice pay live", GROUPS).map((r) => r.url), ["https://bo.live.pay.com"]);
+  assert.deepEqual(search("backoffice prod", GROUPS).map((r) => r.url), ["https://bo.prod.pam.com"]);
+});
+
+test("the group shows in suggestions and tab group titles when there are several", () => {
+  const [result] = search("wallet qa", GROUPS);
+  assert.match(describe(result, false, true), /^<dim>Payments<\/dim> <match>QA<\/match>/);
+  assert.equal(tabGroupTitle(GROUPS, result.group, result.env), "Payments · QA");
+  assert.equal(tabGroupTitle(config, config.groups[0], config.groups[0].environments[0]), "DEV");
+  assert.equal(environmentForUrl(GROUPS, "https://wallet.live.pay.com/x").group.id, "payments");
+});
+
+test("each shared source feeds one group; one without a group feeds the first", () => {
+  assert.deepEqual(GROUPS.sources.map((src) => sourceGroupId(GROUPS, src)), ["payments", "pam"]);
+  const pay = parseSharedFile(JSON.stringify({ links: [{ key: "refunds", template: "refunds.{{ENV}}.{{HOST}}" }] }));
+  const eff = resolveConfig(GROUPS, [{ source: GROUPS.sources[0], data: pay }]);
+  assert.deepEqual(eff.groups.map((g) => g.links.map((l) => l.key)), [["backoffice"], ["backoffice", "wallet", "refunds"]]);
+  assert.deepEqual(search("refunds", eff).map((r) => r.env.name), ["QA", "LIVE"]);
+});
+
+// ---- Environments a link doesn't apply to ---------------------------------------------------
+
+import { isExcluded } from "../src/core.js";
+
+test("a link can be marked as not applicable to some environments", () => {
+  const cfg = normalizeConfig({ ...EXAMPLE, links: [{ ...EXAMPLE.links[0], excluded: ["preprod", "preprod", "staging"] }] });
+  const [link] = cfg.groups[0].links;
+  assert.deepEqual(link.excluded, ["preprod", "staging"]);
+  assert.deepEqual(search("backoffice", cfg).map((r) => r.env.name), ["DEV", "PRODUCTION"]);
+  assert.equal(search("backoffice stag", cfg).length, 0);
+  assert.equal(environmentForUrl(cfg, "https://backoffice.staging.example.com"), null);
+  assert.equal(isExcluded(link, { id: "dev" }), false);
+  assert.equal("excluded" in config.groups[0].links[0], false); // not stored when there are none
+});
+
+test("shared files keep the environments a link doesn't apply to", () => {
+  const cfg = normalizeConfig({ ...EXAMPLE, links: [{ ...EXAMPLE.links[0], excluded: ["production"] }] });
+  const file = buildSharedFile(cfg.groups[0], ["backoffice"]);
+  assert.deepEqual(file.links[0].excluded, ["production"]);
+  assert.deepEqual(parseSharedFile(JSON.stringify(file)).links[0].excluded, ["production"]);
+});
+
+// ---- Variable names typed in the settings page ------------------------------------------------
+
+import { toVariableName, renameInLink } from "../src/core.js";
+
+test("variable names from the settings page are capitals only", () => {
+  assert.equal(toVariableName(" api host "), "API_HOST");
+  assert.equal(toVariableName("region-2"), "REGION_2");
+  assert.equal(toVariableName("9lives"), "_9LIVES");
+});
+
+test("renaming a variable inside a link changes its template and overrides", () => {
+  const link = { key: "x", template: "x.{{d}}.{{ d }}/{{dd}}", overrides: { prod: "{{d}}.io" } };
+  renameInLink(link, "d", "D");
+  assert.equal(link.template, "x.{{D}}.{{D}}/{{dd}}");
+  assert.deepEqual(link.overrides, { prod: "{{D}}.io" });
 });

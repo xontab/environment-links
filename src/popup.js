@@ -20,25 +20,26 @@ const NO_RESULTS_ICON = `<svg viewBox="0 0 48 48" width="40" height="40" aria-hi
 function emptyState(query) {
   const icon = el("span", { className: "empty-icon" });
   icon.innerHTML = NO_RESULTS_ICON;
-  const [title, hint] = !config.links.length
+  const hasLinks = config.groups.some((g) => g.links.length);
+  const [title, hint] = !hasLinks
     ? ["No links yet", "Add your first link in Settings."]
     : ["No matching links", "Try another name, or check the environment you typed."];
   return el("li", { className: "empty-state" },
     icon,
     el("strong", {}, title),
-    query && config.links.length ? el("span", { className: "query" }, `Nothing matches “${query}”`) : "",
+    query && hasLinks ? el("span", { className: "query" }, `Nothing matches “${query}”`) : "",
     el("span", { className: "hint" }, hint)
   );
 }
 
 /** Plain click follows the "open in" setting; Cmd/Ctrl/middle-click opens in the background, Shift in a new tab. */
-async function open(url, event, env) {
+async function open(url, event, env, group) {
   let target = config.openIn;
   if (event?.metaKey || event?.ctrlKey || event?.button === 1) target = "newBackgroundTab";
   else if (event?.shiftKey) target = "newForegroundTab";
 
   // Wait for the tab (and its group) before closing: closing the popup stops this script.
-  await openLink(url, target, env, config);
+  await openLink(url, target, env, config, group);
   if (target !== "newBackgroundTab") window.close();
 }
 
@@ -86,7 +87,18 @@ function render() {
     list.append(emptyState(filter.value.trim()));
   }
 
-  for (const [link, envs] of byLink) {
+  // With several groups, each group's links get a heading; the list is in search order otherwise.
+  const showGroups = new Set(results.map((r) => r.group)).size > 1;
+  const ordered = showGroups
+    ? config.groups.flatMap((g) => [...byLink].filter(([, envs]) => envs[0].group.id === g.id))
+    : [...byLink];
+  let lastGroup = null;
+
+  for (const [link, envs] of ordered) {
+    if (showGroups && envs[0].group !== lastGroup) {
+      lastGroup = envs[0].group;
+      list.append(el("li", { className: "group-heading" }, lastGroup.name));
+    }
     const chips = envs.map((r) =>
       item(
         el("a", {
@@ -94,7 +106,7 @@ function render() {
           title: r.missing.length ? `${displayUrl(r.url)}\nMissing: ${r.missing.join(", ")}` : displayUrl(r.url),
           className: r.missing.length ? "warn" : "",
         }, r.env.name),
-        (e) => open(r.url, e, r.env),
+        (e) => open(r.url, e, r.env, r.group),
         r.url
       )
     );

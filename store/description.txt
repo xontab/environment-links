@@ -34,7 +34,11 @@ backoffice → backoffice.{{ENVIRONMENT}}.{{DOMAIN}}
 
 Then set the variables for each environment in a single grid, with one row per environment: ENVIRONMENT is "dev" for DEV, "staging" for STAGING and so on. A Default row holds values shared by every environment, so a variable like DOMAIN only needs setting once. Add as many variables and environments as you need, with any names you like: REGION, CLUSTER, TENANT, PORT.
 
-When one environment doesn't follow the pattern (production often drops the environment name, for example), override that link's URL for that environment only. The settings page shows a live preview of every link in every environment and flags any variable you haven't set.
+When one environment doesn't follow the pattern (production often drops the environment name, for example), override that link's URL for that environment only. If a link doesn't exist in an environment at all, mark it as not applicable there and it's left out of the list. The settings page shows a live preview of every link in every environment and flags any variable you haven't set.
+
+ENVIRONMENT GROUPS
+
+Look after more than one product? Keep a separate group for each, such as PAM (DEV, STAGING, PRODUCTION) and Payments (QA, UAT, LIVE). Each group has its own variables, environments, links and shared links. The address bar and toolbar list search every group, and typing a group's name narrows them to it: "e backoffice payments".
 
 SHARE LINKS WITH YOUR TEAM
 

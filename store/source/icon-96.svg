@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96">
+  <!-- The 128px icon's artwork: 96px inside Google's 16px padding. Drawn on the 96px grid, with
+       16px rows 7px apart and every edge on a whole pixel, so it's sharp instead of scaled from icon.svg. -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#3b82f6"/>
+      <stop offset="1" stop-color="#4338ca"/>
+    </linearGradient>
+  </defs>
+  <rect width="96" height="96" rx="21" fill="url(#bg)"/>
+  <circle cx="26" cy="25" r="8" fill="#34d399"/>
+  <rect x="40" y="17" width="38" height="16" rx="8" fill="#fff"/>
+  <circle cx="26" cy="48" r="8" fill="#fbbf24"/>
+  <rect x="40" y="40" width="38" height="16" rx="8" fill="#fff" opacity=".9"/>
+  <circle cx="26" cy="71" r="8" fill="#f87171"/>
+  <rect x="40" y="63" width="38" height="16" rx="8" fill="#fff" opacity=".8"/>
+</svg>

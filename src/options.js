@@ -1,6 +1,6 @@
 import {
   DEFAULT_CONFIG, DEFAULT_SHARED_PATH, normalizeConfig, normalizeSource, expandLink, displayUrl, slug,
-  resolveConfig, parseGitHubLocation, buildSharedFile, isEmptyConfig,
+  resolveConfig, parseGitHubLocation, buildSharedFile, isEmptyConfig, normalizeGroup, sourceGroupId, isExcluded, variablesUsed, toVariableName, renameInLink,
 } from "./core.js";
 import { GROUP_PERMISSION } from "./open.js";
 import {
@@ -11,10 +11,14 @@ const $ = (sel) => document.querySelector(sel);
 
 // `config` is the user's own settings (what gets saved). `effective` adds the shared files on
 // top for display; it is recomputed from config + cache and never saved.
-let config = normalizeConfig(DEFAULT_CONFIG);
+// settings is everything the user saved. config is the environment group being edited, one of
+// settings.groups: Variables, Links and Shared links all show and change that group only.
+let settings = normalizeConfig(DEFAULT_CONFIG);
+let config = settings.groups[0];
 let cache = {};
 let tokens = {};
-let effective = resolveConfig(config);
+let effectiveAll = resolveConfig(settings);
+let effective = effectiveAll.groups[0]; // the group being edited, with its shared links laid underneath
 // At most one link's preview and overrides are open at a time: the key of that link (an own
 // link object, or "shared:<source>:<key>" for a shared one), or null.
 let openLink = null;
@@ -40,14 +44,24 @@ function setStatus(text, kind = "") {
   s.className = `status ${kind}`;
 }
 
+const GROUP_KEY = "current-group"; // a convenience, so a reload stays on the same group
+let currentGroupId = (() => { try { return localStorage.getItem(GROUP_KEY); } catch { return null; } })();
+
 function recompute() {
-  effective = resolveConfig(config, layersFor(config, cache));
+  config = settings.groups.find((g) => g.id === currentGroupId) || settings.groups[0];
+  currentGroupId = config.id;
+  effectiveAll = resolveConfig(settings, layersFor(settings, cache));
+  effective = effectiveAll.groups.find((g) => g.id === config.id);
 }
+
+/** The shared sources that feed the group being edited, and their last fetched files. */
+const groupSources = () => settings.sources.filter((source) => sourceGroupId(settings, source) === config.id);
+const groupLayers = () => layersFor(settings, cache).filter(({ source }) => sourceGroupId(settings, source) === config.id);
 
 async function saveNow() {
   clearTimeout(saveTimer);
   try {
-    await chrome.storage.sync.set({ [CONFIG_KEY]: config });
+    await chrome.storage.sync.set({ [CONFIG_KEY]: settings });
     setStatus("Saved", "ok");
   } catch (err) {
     setStatus(`Not saved: ${err.message}`, "err");
@@ -88,11 +102,11 @@ const iconButton = (title, label, onclick, disabled = false) =>
 const sharedTag = (source) => el("span", { class: "tag", title: `From ${source}` }, "shared");
 
 function sharedVariableNames() {
-  return new Set(layersFor(config, cache).flatMap(({ data }) => data?.variableNames || []));
+  return new Set(groupLayers().flatMap(({ data }) => data?.variableNames || []));
 }
 
 function sharedEnvironmentIds() {
-  return new Set(layersFor(config, cache).flatMap(({ data }) => (data?.environments || []).map((e) => e.id)));
+  return new Set(groupLayers().flatMap(({ data }) => (data?.environments || []).map((e) => e.id)));
 }
 
 /** The user's own entry for an environment, created on first edit for one that only comes from a shared file. */
@@ -103,6 +117,281 @@ function ownEnvironment(env, create) {
     config.environments.push(own);
   }
   return own;
+}
+
+// ---- Environment groups -----------------------------------------------------
+
+const MORE_ICON = `<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="currentColor">
+  <circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>`;
+const PENCIL_PATHS = `<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>`;
+
+let renamingGroup = null; // the id of the group whose tab shows a name field
+
+function switchGroup(id) {
+  currentGroupId = id;
+  try { localStorage.setItem(GROUP_KEY, id); } catch {}
+  openLink = null;
+  render();
+}
+
+const focusGroupTab = (id) => $(`#group-tabs [role=tab][data-group="${CSS.escape(id)}"]`)?.focus();
+
+/** One tab per group, each with a ⋯ menu to rename or delete it. Arrow keys move between tabs. */
+function renderGroups() {
+  const several = settings.groups.length > 1;
+  closeGroupMenu();
+  $("#group-tabs").replaceChildren(...effectiveAll.groups.map((resolved, i) => {
+    const group = settings.groups[i];
+    const selected = group.id === config.id;
+    const count = resolved.links.filter((l) => l.key).length;
+    const wrap = el("div", { class: `group-tab${selected ? " selected" : ""}`, dataset: { group: group.id } });
+    if (renamingGroup === group.id) {
+      wrap.append(renameField(group));
+      return wrap;
+    }
+    wrap.draggable = several; // drag a tab to reorder the groups
+    wrap.append(
+      el("button", {
+        type: "button", role: "tab", dataset: { group: group.id }, "aria-controls": "group-panel",
+        "aria-selected": String(selected), tabIndex: selected ? 0 : -1,
+        onclick: () => { switchGroup(group.id); focusGroupTab(group.id); }, // the tabs were rebuilt
+        ondblclick: () => startRename(group),
+        onkeydown: (e) => {
+          const step = { ArrowRight: 1, ArrowLeft: -1 }[e.key];
+          if (e.key === "F2") return startRename(group);
+          if (!step) return;
+          e.preventDefault();
+          if (e.altKey) return moveGroup(group, step); // Alt+arrow moves the tab itself
+          const next = settings.groups[(i + step + settings.groups.length) % settings.groups.length];
+          switchGroup(next.id);
+          focusGroupTab(next.id);
+        },
+        title: several ? "Drag, or press Alt+←/→, to reorder" : "",
+      }, el("span", { class: "name" }, group.name), el("span", { class: "count", title: plural(count, "link") }, String(count))),
+      moreButton(group, several)
+    );
+    return wrap;
+  }));
+}
+
+function moreButton(group, several) {
+  const button = el("button", {
+    type: "button", class: "more", title: `Options for ${group.name}`, "aria-label": `Options for ${group.name}`,
+    "aria-haspopup": "menu", "aria-expanded": "false",
+    onclick: (e) => {
+      e.stopPropagation();
+      if (button.getAttribute("aria-expanded") === "true") return closeGroupMenu();
+      openGroupMenu(button, group, several);
+    },
+  });
+  button.innerHTML = MORE_ICON; // static markup
+  return button;
+}
+
+// ---- The ⋯ menu ----
+
+let groupMenu = null; // { menu, button }
+
+function closeGroupMenu({ refocus = false } = {}) {
+  if (!groupMenu) return;
+  const { menu, button } = groupMenu;
+  groupMenu = null;
+  menu.remove();
+  button.setAttribute("aria-expanded", "false");
+  if (refocus) button.focus();
+}
+
+function openGroupMenu(button, group, several) {
+  closeGroupMenu();
+  const item = (label, icon, action, { danger = false, disabled = false, title = "" } = {}) =>
+    el("button", {
+      type: "button", role: "menuitem", class: danger ? "danger" : "", disabled, title, tabIndex: -1,
+      onclick: () => { closeGroupMenu(); action(); },
+    }, buttonIcon(icon), label);
+  const index = settings.groups.indexOf(group);
+  const menu = el("div", { class: "group-menu", role: "menu", "aria-label": `${group.name} options` },
+    item("Rename", PENCIL_PATHS, () => startRename(group)),
+    ...(several ? [
+      item("Move left", ARROW_LEFT, () => moveGroup(group, -1), { disabled: index === 0 }),
+      item("Move right", ARROW_RIGHT, () => moveGroup(group, 1), { disabled: index === settings.groups.length - 1 }),
+    ] : []),
+    item("Clear settings", ERASER_ICON, () => clearGroup(group), {
+      danger: true, disabled: isEmptyGroup(group), title: isEmptyGroup(group) ? "This group has nothing of your own to clear" : "",
+    }),
+    item("Delete", TRASH_ICON, () => deleteGroup(group), {
+      danger: true, disabled: !several, title: several ? "" : "There has to be at least one group",
+    }));
+  menu.addEventListener("keydown", (e) => {
+    const items = [...menu.querySelectorAll("[role=menuitem]:not(:disabled)")];
+    const at = items.indexOf(document.activeElement);
+    if (e.key === "Escape" || e.key === "Tab") {
+      e.preventDefault();
+      closeGroupMenu({ refocus: true });
+    } else if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      items[(at + (e.key === "ArrowDown" ? 1 : -1) + items.length) % items.length]?.focus();
+    }
+  });
+  button.closest(".group-tab").append(menu);
+  button.setAttribute("aria-expanded", "true");
+  groupMenu = { menu, button };
+  menu.querySelector("[role=menuitem]:not(:disabled)")?.focus();
+}
+
+document.addEventListener("click", (e) => {
+  if (groupMenu && !groupMenu.menu.contains(e.target)) closeGroupMenu();
+});
+
+// ---- Reordering ----
+
+const ARROW_LEFT = `<path d="M19 12H5"/><path d="m12 19-7-7 7-7"/>`;
+const ARROW_RIGHT = `<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>`;
+
+/** Put a group at a new position in the list. The order is also the order searches list groups in. */
+function placeGroup(group, index) {
+  const from = settings.groups.indexOf(group);
+  const to = Math.max(0, Math.min(index, settings.groups.length - 1));
+  if (from < 0 || from === to) return false;
+  settings.groups.splice(from, 1);
+  settings.groups.splice(to, 0, group);
+  scheduleSave();
+  recompute(); // the tabs pair each group with its resolved copy by position
+  renderGroups();
+  return true;
+}
+
+function moveGroup(group, delta) {
+  placeGroup(group, settings.groups.indexOf(group) + delta);
+  focusGroupTab(group.id);
+}
+
+let draggingGroup = null;
+const groupTabs = $("#group-tabs");
+const clearGroupDrop = () => groupTabs.querySelectorAll(".drop-before, .drop-after, .dragging")
+  .forEach((n) => n.classList.remove("drop-before", "drop-after", "dragging"));
+/** The tab under the pointer and whether the drop goes after it (the pointer is on its right half). */
+function groupDropTarget(e) {
+  const tab = e.target.closest(".group-tab");
+  if (!tab || !draggingGroup || tab.dataset.group === draggingGroup.id) return null;
+  const { left, width } = tab.getBoundingClientRect();
+  return { tab, after: e.clientX > left + width / 2 };
+}
+groupTabs.addEventListener("dragstart", (e) => {
+  const tab = e.target.closest(".group-tab");
+  draggingGroup = tab && settings.groups.find((g) => g.id === tab.dataset.group);
+  if (!draggingGroup) return;
+  closeGroupMenu();
+  e.dataTransfer.effectAllowed = "move";
+  e.dataTransfer.setData("text/plain", draggingGroup.name);
+  tab.classList.add("dragging");
+});
+groupTabs.addEventListener("dragover", (e) => {
+  if (!draggingGroup) return;
+  e.preventDefault();
+  e.dataTransfer.dropEffect = "move";
+  groupTabs.querySelectorAll(".drop-before, .drop-after").forEach((n) => n.classList.remove("drop-before", "drop-after"));
+  const target = groupDropTarget(e);
+  target?.tab.classList.add(target.after ? "drop-after" : "drop-before");
+});
+groupTabs.addEventListener("drop", (e) => {
+  const target = groupDropTarget(e);
+  const group = draggingGroup;
+  if (!target || !group) return;
+  e.preventDefault();
+  const others = settings.groups.filter((g) => g !== group);
+  const at = others.findIndex((g) => g.id === target.tab.dataset.group) + (target.after ? 1 : 0);
+  draggingGroup = null;
+  placeGroup(group, at);
+});
+groupTabs.addEventListener("dragend", () => { draggingGroup = null; clearGroupDrop(); });
+
+// ---- Rename, add and delete ----
+
+function startRename(group) {
+  renamingGroup = group.id;
+  renderGroups();
+  const field = $("#group-tabs .rename");
+  field?.focus();
+  field?.select();
+}
+
+/** The name field a tab turns into. Enter or leaving it saves; Escape keeps the old name. */
+function renameField(group) {
+  let done = false;
+  const finish = (save) => {
+    if (done) return;
+    done = true;
+    const name = field.value.trim();
+    renamingGroup = null;
+    if (save && name && name !== group.name) {
+      group.name = name;
+      scheduleSave();
+    }
+    render(); // other sections show the group's name too
+    focusGroupTab(group.id);
+  };
+  const field = el("input", {
+    class: "rename", value: group.name, maxLength: 40, "aria-label": "Group name",
+    onkeydown: (e) => {
+      if (e.key === "Enter") { e.preventDefault(); finish(true); }
+      else if (e.key === "Escape") { e.preventDefault(); finish(false); }
+    },
+    onblur: () => finish(true),
+  });
+  return field;
+}
+
+$("#add-group").addEventListener("click", () => {
+  let n = settings.groups.length + 1;
+  while (settings.groups.some((g) => g.name === `Group ${n}`)) n++;
+  const group = normalizeGroup({ name: `Group ${n}` });
+  while (settings.groups.some((g) => g.id === group.id)) group.id += "-2";
+  settings.groups.push(group);
+  scheduleSave();
+  currentGroupId = group.id;
+  try { localStorage.setItem(GROUP_KEY, group.id); } catch {}
+  openLink = null;
+  render();
+  startRename(group); // ready to type its real name
+});
+
+const ERASER_ICON = `<path d="m7 21-4.3-4.3a1 1 0 0 1 0-1.4l10-10a1 1 0 0 1 1.4 0l5.6 5.6a1 1 0 0 1 0 1.4L11 21"/><path d="M22 21H7"/><path d="m5 11 9 9"/>`;
+
+const isEmptyGroup = (group) => !group.environments.length && !group.links.length && !group.variableNames.length
+  && !Object.keys(group.globals).length;
+
+/** Remove a group's own variables, environments and links. Its name, place and Shared links stay. */
+async function clearGroup(group) {
+  const parts = [plural(group.environments.length, "environment"), plural(group.variableNames.length, "variable"),
+    plural(group.links.length, "link")];
+  const shared = settings.sources.some((s) => sourceGroupId(settings, s) === group.id) ? " Its Shared links are kept." : "";
+  if (!confirm(`Clear the ${group.name} group's ${parts.slice(0, -1).join(", ")} and ${parts.at(-1)}?${shared}`)) return;
+  Object.assign(group, normalizeGroup({ id: group.id, name: group.name }));
+  openLink = null;
+  render();
+  focusGroupTab(group.id);
+  await saveNow(); // save first, so "Saved" doesn't replace the message below
+  setStatus(`Cleared the ${group.name} group.`, "ok");
+}
+
+async function deleteGroup(group) {
+  if (settings.groups.length < 2) return;
+  const sources = settings.sources.filter((s) => sourceGroupId(settings, s) === group.id);
+  const parts = [plural(group.environments.length, "environment"), plural(group.links.length, "link")];
+  if (sources.length) parts.push(`its Shared links from ${sources.map((s) => s.repo).join(", ")}`);
+  const list = parts.length > 1 ? `${parts.slice(0, -1).join(", ")} and ${parts.at(-1)}` : parts[0];
+  const empty = !group.environments.length && !group.links.length && !group.variableNames.length && !sources.length;
+  if (!empty && !confirm(`Delete the ${group.name} group, with ${list}?`)) return; // an empty one goes without asking
+  settings.groups = settings.groups.filter((g) => g !== group);
+  settings.sources = settings.sources.filter((s) => !sources.includes(s));
+  if (currentGroupId === group.id) currentGroupId = settings.groups[0].id;
+  openLink = null;
+  render();
+  focusGroupTab(currentGroupId);
+  await saveNow();
+  await forgetRemovedSources(settings);
+  [cache, tokens] = await Promise.all([loadCache(), loadTokens()]);
+  setStatus(`Deleted the ${group.name} group.`, "ok");
 }
 
 // ---- Variables grid -------------------------------------------------------
@@ -127,12 +416,14 @@ function renderVars() {
   $("#vars-empty")?.remove();
   const nothing = !effective.environments.length && !effective.variableNames.length;
   table.hidden = nothing;
-  if (nothing) {
-    const block = emptyBlock(BRACES_ICON, "No environments yet",
-      "Add one with + Environment, for example DEV. Then add the variables your links need, such as ENVIRONMENT and DOMAIN.");
+  if (!effective.environments.length) {
+    // Without environments there's nothing to fill in, even when some variables are there already.
+    const block = emptyBlock(BRACES_ICON, "No environments yet", nothing
+      ? "Add one with + Environment, for example DEV. Then add the variables your links need, such as ENVIRONMENT and DOMAIN."
+      : "Add one with + Environment, for example DEV, to give these variables a value for it.");
     block.id = "vars-empty";
     table.parentElement.after(block);
-    return;
+    if (nothing) return;
   }
   const ownNames = new Set(config.variableNames);
   const sharedNames = sharedVariableNames();
@@ -154,12 +445,19 @@ function renderVars() {
               el("input", {
                 class: "mono", value: name, "aria-label": "Variable name", readOnly: shared,
                 title: shared ? "Defined in Shared links, so it can't be renamed here" : "",
+                oninput: (e) => capitalise(e.target),
                 onchange: (e) => renameVariable(name, e.target.value),
               }),
               shared ? sharedTag("Shared links") : null,
               iconButton(
                 shared ? `Clear your values for ${name}` : `Remove ${name}`, "✕",
                 () => {
+                  if (!shared) {
+                    // Like removing an environment, ask first, and say which links would be left with a gap.
+                    const users = effective.links.filter((l) => l.key && variablesUsed(l).has(name)).map((l) => l.key);
+                    const note = users.length ? `\n\n${users.join(", ")} ${users.length === 1 ? "uses" : "use"} it.` : "";
+                    if (!confirm(`Remove variable "${name}"?${note}`)) return;
+                  }
                   const i = config.variableNames.indexOf(name);
                   if (i >= 0) config.variableNames.splice(i, 1);
                   delete config.globals[name];
@@ -189,7 +487,8 @@ function renderVars() {
   };
 
   const body = el("tbody");
-  body.append(
+  // The Default row holds values for every environment, so it only shows once there's a variable.
+  if (effective.variableNames.length) body.append(
     el("tr", { class: "defaults" },
       el("th", {}, el("span", { class: "fixed" }, "Default")),
       ...effective.variableNames.map((name) =>
@@ -257,8 +556,18 @@ function refreshPlaceholders() {
   });
 }
 
+/** Variable names are capitals only: change what's typed as it's typed, keeping the cursor where it was. */
+function capitalise(input) {
+  const { selectionStart, selectionEnd } = input;
+  const value = input.value.toUpperCase().replace(/[^A-Z0-9_]/g, "_"); // one character for one, so the cursor stays put
+  if (value !== input.value) {
+    input.value = value;
+    input.setSelectionRange(selectionStart, selectionEnd);
+  }
+}
+
 function renameVariable(from, rawTo) {
-  const to = rawTo.trim().replace(/[^A-Za-z0-9_]/g, "_");
+  const to = toVariableName(rawTo);
   if (!to || to === from) return render();
   if (effective.variableNames.includes(to)) {
     alert(`A variable called ${to} already exists.`);
@@ -394,12 +703,42 @@ function moveItem(list, index, delta) {
 
 // ---- Links ----------------------------------------------------------------
 
-function previewRow(env, ref, input) {
+function previewRow(env, ref, input, applies = null) {
   return el("div", { class: "env-row" },
     el("span", { class: "name" }, env.name),
     input,
+    applies,
     el("div", { class: "preview", dataset: { link: ref, env: env.id } })
   );
+}
+
+/**
+ * The "Applicable" tickbox on one of the user's own links: untick it when the link doesn't exist in
+ * that environment, so it isn't listed there. Any override typed for it is kept for later.
+ */
+function appliesToggle(link, env, input) {
+  const box = el("input", {
+    type: "checkbox", checked: !isExcluded(link, env),
+    onchange: (e) => {
+      const excluded = new Set(link.excluded || []);
+      if (e.target.checked) excluded.delete(env.id);
+      else excluded.add(env.id);
+      if (excluded.size) link.excluded = [...excluded];
+      else delete link.excluded;
+      markExcluded(label, input, !e.target.checked);
+      changed();
+    },
+  });
+  const label = el("label", {
+    class: "applies", title: `Untick if ${link.key || "this link"} doesn't exist in ${env.name}, to leave ${env.name} out of its list`,
+  }, box, "Applicable");
+  queueMicrotask(() => markExcluded(label, input, isExcluded(link, env))); // once the row exists
+  return label;
+}
+
+function markExcluded(label, input, excluded) {
+  label.closest(".env-row")?.classList.toggle("excluded", excluded);
+  input.disabled = excluded;
 }
 
 // A chevron that points right when closed; CSS rotates it down when the row is open.
@@ -489,12 +828,30 @@ function openOnly(key) {
   });
 }
 
+/** With no environments in the group, a link has nowhere to open, so its details say so and offer one. */
+function noEnvironmentsNote() {
+  if (effective.environments.length) return null;
+  const note = infoNote("There are no environments yet, so this link has nowhere to open. Add one, such as DEV, and give it the values your template uses.");
+  note.append(el("button", {
+    type: "button", class: "note-action",
+    onclick: () => {
+      $("#add-env").click();
+      const name = [...document.querySelectorAll('#vars input[aria-label="Environment name"]')].at(-1);
+      name?.scrollIntoView({ block: "center" });
+      name?.focus({ preventScroll: true });
+      name?.select();
+    },
+  }, buttonIcon(PLUS_ICON), "Add an environment"));
+  return note;
+}
+
 function renderLinks() {
   const root = $("#links");
   root.replaceChildren();
   if (!config.links.length) {
     root.append(emptyBlock(LINK_ICON, "No links of your own yet",
-      "Add one with + Link: a short name, and a URL template with your variables in {{double braces}}."));
+      el("span", {}, "Add one with + Link: a short name, and a URL template with your variables in {{double braces}}, for example ",
+        el("code", {}, "backoffice"), " and ", el("code", {}, "backoffice.{{ENVIRONMENT}}.{{DOMAIN}}"), ".")));
   }
 
   config.links.forEach((link, i) => {
@@ -524,8 +881,9 @@ function renderLinks() {
           shadows
             ? infoNote(`This overrides the shared "${shadows.key}" link from ${shadows.source}. Delete this link, or click restore (↺) on the shared one, to use it again.`)
             : null,
-          ...effective.environments.map((env) =>
-            previewRow(env, String(i), el("input", {
+          noEnvironmentsNote(),
+          ...effective.environments.map((env) => {
+            const input = el("input", {
               class: "mono",
               value: link.overrides[env.id] ?? "",
               placeholder: "Uses the template above. Type a URL to override for this environment.",
@@ -535,8 +893,9 @@ function renderLinks() {
                 else delete link.overrides[env.id];
                 changed();
               },
-            }))
-          )
+            });
+            return previewRow(env, String(i), input, appliesToggle(link, env, input));
+          })
         )
       )
     );
@@ -585,7 +944,7 @@ function renderSharedLinks() {
   effective.sharedLinks.forEach((link, i) => {
     if (link.source !== lastSource) {
       lastSource = link.source;
-      root.append(sourceHeading(config.sources.find((src) => src.repo === link.source), link.source));
+      root.append(sourceHeading(groupSources().find((src) => src.repo === link.source), link.source));
     }
     const key = `shared:${link.source}:${link.key}`;
 
@@ -614,7 +973,8 @@ function renderSharedLinks() {
                 title: `Override: copy "${link.key}" into your own links and change it there. Your copy is used instead of the shared one.`,
                 "aria-label": `Override ${link.key} with your own copy`,
                 onclick: async () => {
-                  const copy = { key: link.key, template: link.template, overrides: { ...link.overrides } };
+                  const copy = { key: link.key, template: link.template, overrides: { ...link.overrides },
+                    ...(link.excluded ? { excluded: [...link.excluded] } : {}) };
                   config.links.push(copy);
                   openLink = copy; // open the copy, ready to edit
                   render();
@@ -632,7 +992,8 @@ function renderSharedLinks() {
             : null,
           ...effective.environments.map((env) =>
             previewRow(env, `s${i}`, el("span", { class: "mono muted" },
-              link.overrides[env.id] ? `Override: ${link.overrides[env.id]}` : "Uses the template"))
+              isExcluded(link, env) ? "Not applicable"
+                : link.overrides[env.id] ? `Override: ${link.overrides[env.id]}` : "Uses the template"))
           )
         )
       )
@@ -644,6 +1005,9 @@ function renderPreviews() {
   document.querySelectorAll(".preview").forEach((node) => {
     const ref = node.dataset.link;
     const link = ref.startsWith("s") ? effective.sharedLinks[Number(ref.slice(1))] : config.links[Number(ref)];
+    if (link?.excluded?.includes(node.dataset.env)) {
+      return node.replaceChildren(el("span", {}, "Not applicable: this link isn't listed for this environment."));
+    }
     const result = link && expandLink(link, effective).find((r) => r.env.id === node.dataset.env);
     if (!result) return node.replaceChildren();
     const children = [
@@ -652,10 +1016,46 @@ function renderPreviews() {
         : el("span", {}, "(empty)"),
     ];
     if (result.missing.length) {
-      children.push(el("span", { class: "warn" }, `  missing: ${result.missing.join(", ")}`));
+      children.push(el("span", { class: "warn" }, "missing:"),
+        ...result.missing.map((name) => missingButton(name, result.env, ref.startsWith("s"))));
     }
     node.replaceChildren(...children);
   });
+}
+
+/**
+ * A missing variable, as a button: it adds the variable to Variables if it isn't there yet, then
+ * goes to this environment's cell for it, ready to type the value.
+ */
+function missingButton(name, env, shared) {
+  const known = effective.variableNames.includes(name);
+  // Variables added here are capitals only. For one of the user's own links, {{name}} becomes
+  // {{NAME}} in their links too; a shared link's file can't be changed, so it gets no button.
+  const upper = toVariableName(name);
+  if (!known && upper !== name && shared) return el("span", { class: "warn" }, name);
+  const title = known ? `Set ${name} for ${env.name} in Variables`
+    : upper !== name ? `Add ${upper} to Variables, change {{${name}}} to {{${upper}}} in your links, and set it for ${env.name}`
+    : `Add ${name} to Variables and set it for ${env.name}`;
+  return el("button", {
+    type: "button", class: "add-missing", title,
+    onclick: () => {
+      let target = name;
+      if (!known) {
+        target = upper;
+        if (upper !== name) config.links.forEach((l) => renameInLink(l, name, upper));
+        if (!effective.variableNames.includes(upper)) config.variableNames.push(upper);
+        restructured();
+      }
+      const cell = $(`#vars input[data-var="${CSS.escape(target)}"][data-env="${CSS.escape(env.id)}"]`);
+      if (!cell) return;
+      cell.scrollIntoView({ block: "center" });
+      cell.focus({ preventScroll: true });
+      cell.classList.remove("flash");
+      void cell.offsetWidth; // restart the animation if it's clicked twice
+      cell.classList.add("flash");
+      cell.addEventListener("animationend", () => cell.classList.remove("flash"), { once: true });
+    },
+  }, buttonIcon(known ? PENCIL_PATHS : PLUS_ICON), known ? `Set ${name}` : `Add ${upper}`);
 }
 
 // ---- Shared files from GitHub --------------------------------------------
@@ -777,11 +1177,13 @@ function tokenRow(source, hasToken) {
 function renderSources() {
   const root = $("#sources");
   root.replaceChildren();
-  if (!config.sources.length) {
-    root.append(el("p", { class: "empty" }, "No Shared links added yet."));
+  const sources = groupSources();
+  if (!sources.length) {
+    root.append(el("p", { class: "empty" },
+      settings.groups.length > 1 ? `No Shared links added to ${config.name} yet.` : "No Shared links added yet."));
     return;
   }
-  config.sources.forEach((source, i) => {
+  sources.forEach((source) => {
     const hasToken = Boolean(tokens[source.id]);
     root.append(
       el("div", { class: "source" },
@@ -802,9 +1204,9 @@ function renderSources() {
               type: "button", class: "danger",
               onclick: async () => {
                 if (!confirm(`Stop using shared links from ${source.repo}?`)) return;
-                config.sources.splice(i, 1);
+                settings.sources = settings.sources.filter((s) => s !== source);
                 await saveNow();
-                await forgetRemovedSources(config);
+                await forgetRemovedSources(settings);
                 [cache, tokens] = await Promise.all([loadCache(), loadTokens()]);
                 render();
               },
@@ -830,16 +1232,19 @@ $("#add-source").addEventListener("submit", async (e) => {
     repo: location.repo,
     branch: $("#source-branch").value.trim() || location.branch || "",
     path: $("#source-path").value.trim() || location.path || DEFAULT_SHARED_PATH,
+    group: config.id,
   });
-  if (config.sources.some((s) => s.id === source.id)) {
-    setStatus("That file is already in the list.", "err");
+  const existing = settings.sources.find((s) => s.id === source.id);
+  if (existing) {
+    const where = settings.groups.find((g) => g.id === sourceGroupId(settings, existing));
+    setStatus(where && where.id !== config.id ? `That file is already used by the ${where.name} group.` : "That file is already in the list.", "err");
     return;
   }
   if (!(await granted)) {
     setStatus("Allow access to api.github.com to sync Shared links.", "err");
     return;
   }
-  config.sources.push(source);
+  settings.sources.push(source);
   await saveNow();
   e.target.reset();
   runSync(source);
@@ -954,7 +1359,7 @@ track.addEventListener("click", (e) => {
 
 /** With nothing set up yet, the tutorial opens (even if it was hidden before) and says so. */
 function updateTutorial(firstRender) {
-  const empty = isEmptyConfig(effective);
+  const empty = isEmptyConfig(effectiveAll);
   $("#tutorial").classList.toggle("is-empty", empty);
   if (empty && firstRender && !$("#tutorial").open) {
     autoOpened = true;
@@ -984,7 +1389,9 @@ const navLinks = NAV_TARGETS.map(([id, label]) => {
     e.preventDefault();
     if (target.tagName === "DETAILS") target.open = true;
     // Measured now rather than read from CSS, so it's right even before a resize has been noticed.
-    window.scrollTo({ top: target.getBoundingClientRect().top + window.scrollY - stickyHeight() - 16 });
+    // Sections under the group tabs also clear the tabs, which stick below the header.
+    const tabs = target.closest(".group-panel") ? $(".group-bar").offsetHeight : 0;
+    window.scrollTo({ top: target.getBoundingClientRect().top + window.scrollY - stickyHeight() - tabs - 16 });
     history.replaceState(null, "", `#${id}`);
     markSection(id);
   });
@@ -1027,7 +1434,7 @@ setHeaderHeight();
 
 // Highlight the section being read: the last one whose top has passed under the header.
 function currentSection() {
-  const line = stickyHeight() + 60;
+  const line = stickyHeight() + $(".group-bar").offsetHeight + 60;
   if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 4) {
     return navLinks[navLinks.length - 1].id; // at the very bottom, the last section is the one in view
   }
@@ -1114,11 +1521,12 @@ function render() {
   document.querySelectorAll(".keyword").forEach((k) => (k.textContent = keyword));
   updateTutorial(!rendered);
   rendered = true;
+  renderGroups();
   renderVars();
   renderLinks();
   renderSources();
   renderShareBuilder();
-  $("#open-in").value = config.openIn;
+  $("#open-in").value = settings.openIn;
   showGroupTabs();
 }
 
@@ -1144,7 +1552,7 @@ $("#add-link").addEventListener("click", () => {
   inputs[inputs.length - 1]?.focus();
 });
 
-$("#open-in").addEventListener("change", (e) => { config.openIn = e.target.value; scheduleSave(); });
+$("#open-in").addEventListener("change", (e) => { settings.openIn = e.target.value; scheduleSave(); });
 
 // Grouping tabs needs the optional "tabGroups" permission, asked for when it's turned on (Chrome
 // only shows the prompt during a click, so the request comes first) and given back when it's off.
@@ -1159,11 +1567,11 @@ groupTabBoxes().forEach((box) => box.addEventListener("change", async (e) => {
       tickGroupTabs(false);
       return setStatus("Tab groups need Chrome's permission to manage tab groups.", "err");
     }
-    config.groupTabs = true;
+    settings.groupTabs = true;
     await saveNow(); // save first, so "Saved" doesn't replace the message below
     setStatus("New links will open in a tab group per environment", "ok");
   } else {
-    config.groupTabs = false;
+    settings.groupTabs = false;
     chrome.permissions.remove(GROUP_PERMISSION).catch(() => {});
     await saveNow();
   }
@@ -1172,11 +1580,11 @@ groupTabBoxes().forEach((box) => box.addEventListener("change", async (e) => {
 /** Ticked only when the setting is on and Chrome still has the permission. */
 async function showGroupTabs() {
   const granted = await chrome.permissions.contains(GROUP_PERMISSION).catch(() => false);
-  tickGroupTabs(config.groupTabs && granted);
+  tickGroupTabs(settings.groupTabs && granted);
 }
 
 $("#export").addEventListener("click", () => {
-  const blob = new Blob([JSON.stringify(config, null, 2) + "\n"], { type: "application/json" });
+  const blob = new Blob([JSON.stringify(settings, null, 2) + "\n"], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const date = new Date().toISOString().slice(0, 10);
   el("a", { href: url, download: `environment-links-${date}.json` }).click();
@@ -1188,11 +1596,11 @@ async function importJson(text, from) {
   try {
     const parsed = JSON.parse(text);
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("expected a JSON object");
-    if (!confirm(`Replace your current environments, variables and links with ${from}?`)) return;
-    config = normalizeConfig(parsed);
+    if (!confirm(`Replace all your groups, environments, variables and links with ${from}?`)) return;
+    settings = normalizeConfig(parsed);
     openLink = null;
     restructured();
-    await forgetRemovedSources(config);
+    await forgetRemovedSources(settings);
     setStatus("Imported", "ok");
   } catch (err) {
     setStatus(`Import failed: ${err.message}`, "err");
@@ -1242,13 +1650,6 @@ dropZone.addEventListener("drop", async (e) => {
 window.addEventListener("dragover", (e) => { if (hasFiles(e)) e.preventDefault(); });
 window.addEventListener("drop", (e) => { if (hasFiles(e)) e.preventDefault(); });
 
-$("#reset").addEventListener("click", () => {
-  if (!confirm("Remove your own environments, variables and links? Shared links are kept.")) return;
-  config = normalizeConfig({ ...structuredClone(DEFAULT_CONFIG), sources: config.sources });
-  openLink = null;
-  restructured();
-});
-
 // Keep in sync with other tabs, other synced devices, and background syncs of shared files.
 chrome.storage.onChanged.addListener(async (changes, area) => {
   const busy = document.activeElement?.matches("input, textarea, select");
@@ -1260,9 +1661,9 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
   }
   if (area !== "sync" || !changes[CONFIG_KEY]) return;
   const incoming = normalizeConfig(changes[CONFIG_KEY].newValue);
-  if (JSON.stringify(incoming) === JSON.stringify(config)) return; // our own save
+  if (JSON.stringify(incoming) === JSON.stringify(settings)) return; // our own save
   if (busy) return;
-  config = incoming;
+  settings = incoming;
   render();
 });
 
@@ -1270,7 +1671,7 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
 // replaces it.
 const PLUS_ICON = `<path d="M12 5v14"/><path d="M5 12h14"/>`;
 const BUTTON_ICONS = [
-  ["#add-var, #add-env, #add-link, #add-source button[type=submit], .slide-cta[data-action^='add-']", PLUS_ICON],
+  ["#add-group, #add-var, #add-env, #add-link, #add-source button[type=submit], .slide-cta[data-action^='add-']", PLUS_ICON],
   ["#share-copy", `<rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/>`],
   ["#change-shortcut, .slide-cta[data-action='shortcut']",
     `<rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/>`],
@@ -1278,7 +1679,6 @@ const BUTTON_ICONS = [
   ["#tutorial-done", `<path d="M20 6 9 17l-5-5"/>`],
   ["#export", `<path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/>`],
   ["#import", `<path d="M12 21V9"/><path d="m7 14 5-5 5 5"/><path d="M5 3h14"/>`],
-  ["#reset", TRASH_ICON],
 ];
 for (const [selector, icon] of BUTTON_ICONS) {
   document.querySelectorAll(selector).forEach((button) => {
@@ -1289,8 +1689,10 @@ for (const [selector, icon] of BUTTON_ICONS) {
 
 (async () => {
   const stored = await chrome.storage.sync.get(CONFIG_KEY);
-  config = normalizeConfig(stored[CONFIG_KEY] || structuredClone(DEFAULT_CONFIG));
-  if (!stored[CONFIG_KEY]) await chrome.storage.sync.set({ [CONFIG_KEY]: config });
+  settings = normalizeConfig(stored[CONFIG_KEY] || structuredClone(DEFAULT_CONFIG));
+  if (!stored[CONFIG_KEY] || !Array.isArray(stored[CONFIG_KEY].groups)) {
+    await chrome.storage.sync.set({ [CONFIG_KEY]: settings }); // first run, or a config from before groups
+  }
   [cache, tokens] = await Promise.all([loadCache(), loadTokens()]);
   render();
 })();

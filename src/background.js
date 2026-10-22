@@ -41,6 +41,7 @@ chrome.omnibox.onInputChanged.addListener(async (text, suggest) => {
   const config = await loadConfig();
   const results = search(text, config);
   const multipleLinks = new Set(results.map((r) => r.link.key)).size > 1;
+  const multipleGroups = new Set(results.map((r) => r.group)).size > 1;
 
   if (!results.length) {
     chrome.omnibox.setDefaultSuggestion({
@@ -54,11 +55,11 @@ chrome.omnibox.onInputChanged.addListener(async (text, suggest) => {
 
   // The first result becomes the default (what Enter opens); the rest are listed below it.
   const [first, ...rest] = results;
-  chrome.omnibox.setDefaultSuggestion({ description: describe(first, multipleLinks) });
+  chrome.omnibox.setDefaultSuggestion({ description: describe(first, multipleLinks, multipleGroups) });
   suggest(
     rest.slice(0, MAX_SUGGESTIONS - 1).map((r) => ({
       content: r.url,
-      description: describe(r, multipleLinks),
+      description: describe(r, multipleLinks, multipleGroups),
       deletable: false,
     }))
   );
@@ -68,6 +69,7 @@ chrome.omnibox.onInputEntered.addListener(async (text, disposition) => {
   const config = await loadConfig();
   let url = text.trim();
   let env = null;
+  let group = null;
 
   // Suggestions carry the URL as their content; the default suggestion carries the typed text.
   if (!/^[a-z][a-z0-9+.-]*:\/\//i.test(url)) {
@@ -76,13 +78,12 @@ chrome.omnibox.onInputEntered.addListener(async (text, disposition) => {
       chrome.runtime.openOptionsPage();
       return;
     }
-    url = first.url;
-    env = first.env;
+    ({ url, env, group } = first);
   } else {
-    env = environmentForUrl(config, url); // for grouping the tab by environment
+    ({ env, group } = environmentForUrl(config, url) || {}); // for grouping the tab by environment
   }
 
   // Respect modifier keys (Alt/Cmd+Enter); otherwise use the configured default.
   const target = disposition === "currentTab" ? config.openIn : disposition;
-  await openLink(url, target, env, config);
+  await openLink(url, target, env, config, group);
 });

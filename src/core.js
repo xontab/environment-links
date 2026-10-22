@@ -5,22 +5,47 @@
 export const DEFAULT_CONFIG = {
   openIn: "currentTab", // currentTab | newForegroundTab | newBackgroundTab
   groupTabs: false, // put opened links in a tab group per environment
-  variableNames: [],
-  globals: {},
-  environments: [],
-  links: [],
+  groups: [],
 };
+
+// Environment groups keep unrelated setups apart, e.g. "PAM" and "Payments": each group has its
+// own variables, environments and links. There's always at least one; with only one, its name
+// isn't shown anywhere outside the settings page.
+export const DEFAULT_GROUP = { id: "default", name: "Default" };
 
 /** True when the user has nothing set up yet, neither their own nor from a shared file. */
 export function isEmptyConfig(config) {
-  return !config.environments.length && !config.links.length && !config.variableNames.length;
+  return config.groups.every((g) => !g.environments.length && !g.links.length && !g.variableNames.length);
 }
 
 const VAR_RE = /\{\{\s*([A-Za-z_][A-Za-z0-9_]*)\s*\}\}/g;
 
-/** Fill in a config loaded from storage so older/partial configs still work. */
+/**
+ * Fill in a config loaded from storage so older/partial configs still work. A config from before
+ * groups existed, with environments and links at the top level, becomes a single group.
+ */
 export function normalizeConfig(raw) {
   const cfg = raw && typeof raw === "object" ? raw : {};
+  const rawGroups = Array.isArray(cfg.groups) ? cfg.groups : [{ ...DEFAULT_GROUP, ...cfg }];
+  const groups = [];
+  rawGroups.forEach((g, i) => {
+    const group = normalizeGroup(g, i);
+    while (groups.some((other) => other.id === group.id)) group.id += "-2"; // ids must be unique
+    groups.push(group);
+  });
+  if (!groups.length) groups.push(normalizeGroup(DEFAULT_GROUP));
+  return {
+    openIn: cfg.openIn || DEFAULT_CONFIG.openIn,
+    groupTabs: cfg.groupTabs === true,
+    groups,
+    sources: (cfg.sources || []).map(normalizeSource).filter((src) => src.repo),
+  };
+}
+
+/** One environment group: its name plus the variables, environments and links in it. */
+export function normalizeGroup(raw, index = 0) {
+  const cfg = raw && typeof raw === "object" ? raw : {};
+  const name = String(cfg.name || "").trim() || (index ? `Group ${index + 1}` : DEFAULT_GROUP.name);
   const globals = { ...(cfg.globals || {}) };
   const environments = (cfg.environments || []).map((env, i) => ({
     id: String(env.id || slug(env.name) || `env${i}`),
@@ -36,13 +61,12 @@ export function normalizeConfig(raw) {
     ]),
   ].filter(Boolean);
   return {
-    openIn: cfg.openIn || DEFAULT_CONFIG.openIn,
-    groupTabs: cfg.groupTabs === true,
+    id: String(cfg.id || slug(name) || `group${index + 1}`),
+    name,
     variableNames,
     globals,
     environments,
     links: normalizeLinks(cfg.links),
-    sources: (cfg.sources || []).map(normalizeSource).filter((src) => src.repo),
     // The order environments are listed in, by id. It covers shared environments too, so they
     // can be reordered alongside the user's own. Ids not listed keep their place at the end.
     environmentOrder: [...new Set((Array.isArray(cfg.environmentOrder) ? cfg.environmentOrder : []).map(String))],
@@ -52,12 +76,20 @@ export function normalizeConfig(raw) {
 }
 
 function normalizeLinks(links) {
-  return (Array.isArray(links) ? links : []).map((link) => ({
-    key: String(link?.key || "").trim(),
-    template: String(link?.template || ""),
-    overrides: { ...(link?.overrides || {}) },
-  }));
+  return (Array.isArray(links) ? links : []).map((link) => {
+    // Environments the link doesn't apply to, by id: it isn't listed for them anywhere.
+    const excluded = [...new Set((Array.isArray(link?.excluded) ? link.excluded : []).map(String))];
+    return {
+      key: String(link?.key || "").trim(),
+      template: String(link?.template || ""),
+      overrides: { ...(link?.overrides || {}) },
+      ...(excluded.length ? { excluded } : {}),
+    };
+  });
 }
+
+/** True when a link is marked as not applicable to an environment. */
+export const isExcluded = (link, env) => Boolean(link.excluded?.includes(env.id));
 
 // ---- Shared links from GitHub ---------------------------------------------
 
@@ -68,7 +100,13 @@ export function normalizeSource(src) {
   const repo = String(src?.repo || "").trim().replace(/^\/+|\/+$/g, "");
   const branch = String(src?.branch || "").trim();
   const path = String(src?.path || DEFAULT_SHARED_PATH).trim().replace(/^\/+/, "") || DEFAULT_SHARED_PATH;
-  return { id: String(src?.id || slug(`${repo}-${branch}-${path}`)), repo, branch, path };
+  const group = String(src?.group || ""); // the environment group it feeds; empty means the first
+  return { id: String(src?.id || slug(`${repo}-${branch}-${path}`)), repo, branch, path, ...(group ? { group } : {}) };
+}
+
+/** The group a source feeds: the one it names, or the first group if that one's gone. */
+export function sourceGroupId(config, source) {
+  return config.groups.some((g) => g.id === source.group) ? source.group : config.groups[0]?.id;
 }
 
 /**
@@ -106,7 +144,7 @@ export function parseSharedFile(text) {
     throw new Error(`The file isn't valid JSON (${err.message}).`);
   }
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) throw new Error("The file must contain a JSON object.");
-  const cfg = normalizeConfig(raw);
+  const cfg = normalizeGroup(raw);
   if (!cfg.links.length && !cfg.environments.length) {
     throw new Error('The file has no "links" or "environments".');
   }
@@ -119,7 +157,19 @@ export function parseSharedFile(text) {
 }
 
 /**
- * Combine the user's own config with shared layers (one per source, in order).
+ * The effective config: each group combined with the shared layers whose source feeds it.
+ * Returns the config with every group replaced by its resolved version (see resolveGroup).
+ */
+export function resolveConfig(config, layers = []) {
+  return {
+    ...config,
+    groups: config.groups.map((group) =>
+      resolveGroup(group, layers.filter(({ source }) => sourceGroupId(config, source) === group.id))),
+  };
+}
+
+/**
+ * Combine one of the user's groups with shared layers (one per source, in order).
  * Shared values sit underneath the user's: their own links, environment names and
  * variable values always win. Precedence for a variable, lowest first:
  *   shared default < own default < shared environment value < own environment value
@@ -130,7 +180,7 @@ export function parseSharedFile(text) {
  *   sharedGlobals             shared defaults (placeholders for the Default row)
  *   sharedLinks               every shared link, with `shadowed` when an own link has its name
  */
-export function resolveConfig(local, layers = []) {
+export function resolveGroup(local, layers = []) {
   const sharedGlobals = {};
   const sharedEnvs = new Map();
   const sharedLinks = [];
@@ -215,16 +265,38 @@ export function tabGroupColor(name, index = 0) {
  */
 export function environmentForUrl(config, url) {
   let best = null;
-  for (const link of config.links) {
-    for (const r of expandLink(link, config)) {
-      if (!r.url || r.missing.length) continue;
-      const base = r.url.replace(/\/+$/, "");
-      if ((url === base || url.startsWith(base + "/") || url.startsWith(base + "?")) && (!best || base.length > best.length)) {
-        best = { env: r.env, length: base.length };
+  for (const group of config.groups) {
+    for (const link of group.links) {
+      for (const r of expandLink(link, group)) {
+        if (!r.url || r.missing.length) continue;
+        const base = r.url.replace(/\/+$/, "");
+        if ((url === base || url.startsWith(base + "/") || url.startsWith(base + "?")) && (!best || base.length > best.length)) {
+          best = { env: r.env, group, length: base.length };
+        }
       }
     }
   }
-  return best?.env || null;
+  return best ? { env: best.env, group: best.group } : null;
+}
+
+/** A tab group's title: the environment's name, after its group's when there are several ("PAM · DEV"). */
+export function tabGroupTitle(config, group, env) {
+  return config.groups.length > 1 && group ? `${group.name} · ${env.name}` : env.name;
+}
+
+/**
+ * A variable name as the settings page allows it: capitals, digits and underscores, not starting
+ * with a digit ("api host" -> "API_HOST"). Shared files may still use any valid name.
+ */
+export function toVariableName(text) {
+  return String(text || "").trim().toUpperCase().replace(/[^A-Z0-9_]/g, "_").replace(/^(?=\d)/, "_");
+}
+
+/** Change {{from}} to {{to}} in a link's template and overrides. */
+export function renameInLink(link, from, to) {
+  const re = new RegExp(`\\{\\{\\s*${from}\\s*\\}\\}`, "g"); // names are \w only, so no escaping needed
+  link.template = link.template.replace(re, `{{${to}}}`);
+  for (const [id, text] of Object.entries(link.overrides || {})) link.overrides[id] = text.replace(re, `{{${to}}}`);
 }
 
 /** Variable names a link uses in its template or overrides. */
@@ -237,25 +309,26 @@ export function variablesUsed(link) {
 }
 
 /**
- * Build the contents of a shared file from some of the user's links. Environments and
+ * Build the contents of a shared file from some of one group's links. Environments and
  * defaults are included only for the variables those links use, unless includeValues is false.
  */
-export function buildSharedFile(config, keys, { includeValues = true } = {}) {
+export function buildSharedFile(group, keys, { includeValues = true } = {}) {
   const wanted = new Set(keys);
-  const links = config.links
+  const links = group.links
     .filter((l) => l.key && wanted.has(l.key))
-    .map(({ key, template, overrides }) => ({
+    .map(({ key, template, overrides, excluded }) => ({
       key,
       template,
       ...(Object.keys(overrides).length ? { overrides } : {}),
+      ...(excluded?.length ? { excluded } : {}),
     }));
   const used = new Set(links.flatMap((l) => [...variablesUsed(l)]));
   const pick = (vars) => Object.fromEntries(Object.entries(vars).filter(([k]) => used.has(k)));
   const file = { links };
   if (includeValues) {
-    file.variableNames = config.variableNames.filter((n) => used.has(n));
-    file.globals = pick(config.globals);
-    file.environments = config.environments.map(({ id, name, variables }) => ({ id, name, variables: pick(variables) }));
+    file.variableNames = group.variableNames.filter((n) => used.has(n));
+    file.globals = pick(group.globals);
+    file.environments = group.environments.map(({ id, name, variables }) => ({ id, name, variables: pick(variables) }));
   }
   return file;
 }
@@ -291,20 +364,21 @@ export function displayUrl(url) {
   return url.replace(/^https:\/\//i, "");
 }
 
-/** Render a link for every environment (respecting per-environment overrides). */
-export function expandLink(link, config) {
-  return config.environments.map((env) => {
+/** Render a link for every environment in its group it applies to (respecting per-environment overrides). */
+export function expandLink(link, group) {
+  return group.environments.filter((env) => !isExcluded(link, env)).map((env) => {
     const override = link.overrides?.[env.id];
     const template = override && override.trim() ? override : link.template;
-    return { env, link, ...render(template, env, config.globals) };
+    return { env, link, group, ...render(template, env, group.globals) };
   });
 }
 
 /**
- * Parse omnibox text: "<link> [env filters...] [/extra/path]".
+ * Parse omnibox text: "<link> [env or group filters...] [/extra/path]".
  *   "backoffice"              -> all environments
  *   "backoffice dev prod"     -> DEV and PRODUCTION only
  *   "backoffice stag /users"  -> STAGING, with /users appended
+ *   "backoffice payments qa"  -> QA in the Payments group (see search)
  */
 export function parseQuery(text) {
   const tokens = String(text || "").trim().split(/\s+/).filter(Boolean);
@@ -314,11 +388,8 @@ export function parseQuery(text) {
   return { term: term.toLowerCase(), envFilters, path };
 }
 
-function envMatches(env, filters) {
-  if (!filters.length) return true;
-  const names = [env.name.toLowerCase(), env.id.toLowerCase()];
-  return filters.some((f) => names.some((n) => n.startsWith(f)));
-}
+const startsAny = (names, filters) => filters.some((f) => names.some((n) => n.startsWith(f)));
+const envMatches = (env, filters) => !filters.length || startsAny([env.name.toLowerCase(), env.id.toLowerCase()], filters);
 
 function appendPath(url, path) {
   if (!path) return url;
@@ -335,18 +406,26 @@ function score(key, term) {
   return null;
 }
 
-/** Ordered list of { env, link, url, missing } results for omnibox text. */
+/**
+ * Ordered list of { env, link, group, url, missing } results for omnibox text, from every group.
+ * A filter word that starts a group's name picks that group; the others pick environments.
+ */
 export function search(text, config) {
-  const { term, envFilters, path } = parseQuery(text);
-  const links = config.links
-    .filter((l) => l.key)
-    .map((l) => ({ l, s: score(l.key, term) }))
-    .filter((x) => x.s !== null)
-    .sort((a, b) => a.s - b.s || a.l.key.localeCompare(b.l.key))
-    .map((x) => x.l);
+  const { term, envFilters: filters, path } = parseQuery(text);
+  const groupNames = (g) => [g.name.toLowerCase(), g.id.toLowerCase()];
+  const groupFilters = config.groups.length > 1
+    ? filters.filter((f) => config.groups.some((g) => startsAny(groupNames(g), [f])))
+    : [];
+  const envFilters = filters.filter((f) => !groupFilters.includes(f));
+  const groups = groupFilters.length ? config.groups.filter((g) => startsAny(groupNames(g), groupFilters)) : config.groups;
 
-  return links.flatMap((link) =>
-    expandLink(link, config)
+  const links = groups
+    .flatMap((group, order) => group.links.filter((l) => l.key).map((l) => ({ l, group, order, s: score(l.key, term) })))
+    .filter((x) => x.s !== null)
+    .sort((a, b) => a.s - b.s || a.l.key.localeCompare(b.l.key) || a.order - b.order);
+
+  return links.flatMap(({ l, group }) =>
+    expandLink(l, group)
       .filter((r) => envMatches(r.env, envFilters))
       .map((r) => ({ ...r, url: appendPath(r.url, path) }))
   );
@@ -362,8 +441,10 @@ export function escapeXml(text) {
     .replace(/'/g, "&apos;");
 }
 
-export function describe(result, showKey) {
-  const prefix = showKey ? `<dim>${escapeXml(result.link.key)}</dim> ` : "";
+/** An address-bar suggestion. showGroup names the result's group, for when there are several. */
+export function describe(result, showKey, showGroup = false) {
+  const label = [showGroup ? result.group?.name : "", showKey ? result.link.key : ""].filter(Boolean).join(" · ");
+  const prefix = label ? `<dim>${escapeXml(label)}</dim> ` : "";
   const warn = result.missing.length
     ? ` <dim>(missing: ${escapeXml(result.missing.join(", "))})</dim>`
     : "";

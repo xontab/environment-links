@@ -4,6 +4,10 @@
 # don't bump the version, and re-runs after a successful publish, do nothing.
 # After submitting, it tags the commit and creates a GitHub release with the zip.
 #
+# The store refuses uploads while another version is in review. The release is still created
+# then, with a note at the top that this version may not be on the store, and the zip attached
+# to upload by hand once the review ends.
+#
 # Setup (once): see CONTRIBUTING.md, "Publishing from GitHub".
 name: Publish to Chrome Web Store
 
@@ -98,11 +102,13 @@ jobs:
           access_token_lifetime: 900s
 
       - name: Upload and submit
+        id: upload
         env:
           CWS_PUBLISHER_ID: ${{ vars.CWS_PUBLISHER_ID }}
           CWS_EXTENSION_ID: ${{ vars.CWS_EXTENSION_ID }}
           CWS_ACCESS_TOKEN: ${{ steps.google.outputs.access_token }}
           CWS_PUBLISH: ${{ (github.event_name == 'push' || inputs.submit) && steps.listing.outputs.listing_changed != 'true' }}
+          CWS_ALLOW_IN_REVIEW: true # release anyway; the notes say it may not be on the store
         run: scripts/publish-chrome-web-store.sh environment-links.zip
 
       - name: Tag and release
@@ -110,9 +116,30 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ needs.check.outputs.version }}
           ATTACHMENTS: ${{ steps.listing.outputs.attachments }}
+          CWS_RESULT: ${{ steps.upload.outputs.store }}
         run: |
-          # The checklist goes first in the release notes; GitHub's generated notes follow it.
+          {
+            # When another version was in review, say first that this one may not be on the store.
+            case "$CWS_RESULT" in
+              not-uploaded)
+                echo "> [!WARNING]"
+                echo "> **This version may not be published on the Chrome Web Store.** Another version was still in review, so the store refused the upload."
+                echo "> Once that review ends, upload \`environment-links.zip\` (attached) in the [Developer Dashboard](https://chrome.google.com/webstore/devconsole) and click **Submit for review**."
+                echo ;;
+              not-submitted)
+                echo "> [!WARNING]"
+                echo "> **This version may not be published on the Chrome Web Store yet.** It was uploaded, but another version was still in review, so the store refused to submit it."
+                echo "> Once that review ends, click **Submit for review** in the [Developer Dashboard](https://chrome.google.com/webstore/devconsole)."
+                echo ;;
+            esac
+            # The checklist, worded for what the upload did. GitHub's generated notes follow it.
+            GITHUB_OUTPUT="" scripts/store-listing-checklist.sh
+          } > release-notes.md
           # shellcheck disable=SC2086 # ATTACHMENTS is a space-separated list of repo paths
           gh release create "v$VERSION" environment-links.zip $ATTACHMENTS \
-            --target "$GITHUB_SHA" --title "v$VERSION" --notes-file listing-checklist.md --generate-notes
+            --target "$GITHUB_SHA" --title "v$VERSION" --notes-file release-notes.md --generate-notes
           echo "Created release v$VERSION." >> "$GITHUB_STEP_SUMMARY"
+          case "$CWS_RESULT" in
+            not-uploaded) echo "::warning::v$VERSION was released on GitHub but not uploaded to the Chrome Web Store, because another version is in review." ;;
+            not-submitted) echo "::warning::v$VERSION was uploaded to the Chrome Web Store but not submitted, because another version is in review." ;;
+          esac

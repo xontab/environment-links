@@ -33,6 +33,12 @@ body.popup { width: 400px; max-height: 580px; padding: 10px; overflow-y: auto; }
 }
 .envs a.selected, a.settings.selected { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
 .envs a.warn { border-style: dashed; }
+/* With several environment groups, each group's links sit under its name. */
+#list li.group-heading {
+  padding: 12px 12px 4px; border-top-color: transparent; font-size: 11px; font-weight: 700;
+  letter-spacing: .06em; text-transform: uppercase; color: var(--muted);
+}
+#list li.group-heading + li { border-top-color: transparent; }
 li.settings-row { display: flex; justify-content: space-between; align-items: center; }
 li.settings-row .muted { font-size: 12px; }
 #list li.empty-state {

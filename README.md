@@ -22,6 +22,7 @@ e backoffice
 - **Address bar:** type `e`, a space and a link name to get it in every environment, filter by environment, or append a path.
 - **Toolbar list:** every link with a button per environment, with a filter box and arrow-key navigation.
 - **One template per link:** variables per environment, a Default row for shared values, and per-environment overrides.
+- **Environment groups:** separate setups for different purposes, such as one per product, each with its own variables, environments, links and Shared links. Every group is searched together.
 - **Team sharing:** pull a shared set of links, environments and variables from a JSON file in a GitHub repository. Your own settings still win.
 - **Portable:** settings sync through your Chrome profile, and you can export and import them as a JSON file.
 - **Private:** no analytics and no servers. The only network requests go to GitHub, for Shared links you add.
@@ -76,15 +77,16 @@ Then click reload on the extension in `chrome://extensions`.
 
 ## Configure
 
+- **Environment groups**: Variables, Links and Shared links sit under a row of tabs, one per group, and show the group whose tab is picked. Add a group with **New group**, rename or delete one from its tab's ⋯ menu, and drag the tabs to reorder them (or press Alt+←/→ on a tab, or use Move left/right in the menu). Search results list groups in this order, for example `PAM` with DEV, STAGING and PRODUCTION and `Payments` with QA, UAT and LIVE. The address bar and toolbar list search every group and label results with the group's name; typing a group's name narrows them to it (`e backoffice payments live`). With tab groups on, tabs are grouped as "Payments · LIVE". With only one group, none of this shows. Behaviour and Import / Export cover every group.
 - **Variables**: a grid with one row per environment and one column per variable, so it grows downwards as you add environments. The **Default** row applies to any environment that leaves its cell blank, so `DOMAIN` only has to be set once. Drag the ⋮⋮ handle on a row or column to reorder environments or variables, or focus the handle and use the arrow keys.
-- **Links**: a name (what you type) and a template such as `backoffice.{{ENVIRONMENT}}.{{DOMAIN}}`. `https://` is added when no scheme is given. Expand a link to preview each environment's URL and to override it for one environment, e.g. production as `backoffice.{{DOMAIN}}`.
+- **Links**: a name (what you type) and a template such as `backoffice.{{ENVIRONMENT}}.{{DOMAIN}}`. `https://` is added when no scheme is given. Expand a link to preview each environment's URL and to override it for one environment, e.g. production as `backoffice.{{DOMAIN}}`. If a link doesn't exist in an environment, untick **Applicable** on that environment's row and it's left out of the address bar, toolbar list and tab groups for that link. In a shared file this is `"excluded": ["production"]` on the link.
 - **Import / Export**: **Export to file** saves your settings as a JSON file (without access tokens). To load it back, drop the file onto the import box (or paste its JSON there), check it, and click **Import from text**.
 
 ## Share links with your team
 
 Put a JSON file in a GitHub repository, then add it under **Shared links** in settings with `owner/repo`, or paste the file's github.com link. To build the file, open **Create a shared file from your links**, pick the links to share and commit the JSON as `environment-links.json`.
 
-The file uses the same format as the export. Every field is optional, but it needs `links` or `environments`:
+A shared file feeds the environment group it was added to, and holds that one group's settings. Every field is optional, but it needs `links` or `environments`:
 
 ```json
 {

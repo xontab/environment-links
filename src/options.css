@@ -35,7 +35,7 @@ body {
   font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 .top {
-  position: sticky; top: 0; z-index: 2;
+  position: sticky; top: 0; z-index: 3;
   display: flex; justify-content: space-between; align-items: flex-start; gap: 16px;
   padding: 16px max(16px, calc((100vw - 1420px) / 2 + 16px));
   background: var(--bg);
@@ -64,7 +64,7 @@ main { min-width: 0; }
 @media (max-width: 900px) {
   .layout { grid-template-columns: minmax(0, 1fr); gap: 8px; }
   .side-nav {
-    position: sticky; top: var(--header-h, 90px); z-index: 1; max-height: none;
+    position: sticky; top: var(--header-h, 90px); z-index: 2; max-height: none;
     display: flex; gap: 6px; overflow-x: auto; padding: 8px 0; background: var(--bg); scrollbar-width: none;
   }
   .side-nav::-webkit-scrollbar { display: none; }
@@ -148,10 +148,37 @@ table.grid { border-collapse: collapse; width: 100%; }
 .link-details { border-top: 1px solid var(--border); padding: 15px 30px; display: none; }
 .link.open .link-details { display: block; }
 .env-row { display: grid; grid-template-columns: minmax(80px, 120px) 1fr; gap: 4px 12px; align-items: center; margin-bottom: 8px; padding-top: 10px; }
+.env-row:has(.applies) { grid-template-columns: minmax(80px, 120px) 1fr auto; }
+.env-row .applies { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); cursor: pointer; white-space: nowrap; }
+.env-row .applies input { margin: 0; }
+/* A link that doesn't apply to an environment: the row fades and its override can't be edited. */
+.env-row.excluded .name { color: var(--muted); text-decoration: line-through; }
+.env-row.excluded input.mono { opacity: .5; }
+.env-row.excluded .preview { font-style: italic; }
 .env-row .name { font-weight: 600; }
-.env-row .preview { grid-column: 2; font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--muted); overflow-wrap: anywhere; }
+/* A flex row, so the URL, "missing:" and its buttons share one centre line. */
+.env-row .preview {
+  grid-column: 2; display: flex; flex-wrap: wrap; align-items: center; gap: 2px 6px; min-height: 20px;
+  font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--muted); overflow-wrap: anywhere;
+}
+.env-row .preview > * { min-width: 0; }
 .env-row .preview a { color: var(--accent); }
 .env-row .warn { color: var(--danger); }
+/* "missing: [+ Add REGION]": jumps to the cell to fill in, adding the variable first if needed. */
+.env-row .add-missing {
+  display: inline-flex; align-items: center; gap: 4px; margin: 0; padding: 0 8px;
+  border: 1px solid color-mix(in srgb, var(--danger) 45%, transparent); border-radius: 999px;
+  background: none; color: var(--danger); font: inherit; font-size: 11px; line-height: 18px;
+}
+.env-row .add-missing:hover, .env-row .add-missing:focus-visible { background: color-mix(in srgb, var(--danger) 10%, transparent); }
+.env-row .add-missing .btn-icon svg { width: 11px; height: 11px; }
+#vars input.flash { animation: link-flash 1.4s ease-out; }
+/* A button inside an info note, e.g. "Add an environment". */
+/* A note with a button: text, then the button at the end, all centred on one line. */
+.info:has(.note-action) { align-items: center; flex-wrap: wrap; }
+.info:has(.note-action) .info-icon { margin-top: 0; }
+.info:has(.note-action) > span { flex: 1 1 240px; }
+.info .note-action { flex: none; display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; font-size: 12px; }
 .empty { color: var(--muted); padding: 8px 0; }
 
 @media (max-width: 640px) {
@@ -160,7 +187,9 @@ table.grid { border-collapse: collapse; width: 100%; }
   .link-row .template { grid-column: 2 / 4; grid-row: 2; }
   .link-details { padding-left: 8px; }
   .env-row { grid-template-columns: 1fr; }
-  .env-row .preview { grid-column: 1; }
+  .env-row:has(.applies) { grid-template-columns: 1fr auto; }
+  .env-row .applies { grid-column: 2; grid-row: 1; }
+  .env-row > :not(.name, .applies) { grid-column: 1 / -1; }
 }
 
 .tag {
@@ -339,6 +368,8 @@ input[readonly] { background: var(--code-bg); }
 }
 .empty-block svg { flex: none; color: var(--accent); opacity: .8; }
 .empty-block strong { display: block; color: var(--text); margin-bottom: 2px; }
+.empty-block code { white-space: nowrap; } /* an example template reads as one piece */
+.table-wrap:has(#vars:not([hidden])) + .empty-block { margin-top: 12px; } /* under the grid's Default row */
 section[id], #tutorial { scroll-margin-top: calc(var(--header-h, 90px) + var(--nav-h, 0px) + 16px); }
 
 .site-footer {
@@ -397,7 +428,7 @@ kbd.unset { color: var(--muted); font-style: italic; }
 /* A brief highlight on the link that "Overridden" jumped to. */
 @keyframes link-flash { from { box-shadow: 0 0 0 3px var(--accent); } to { box-shadow: 0 0 0 3px transparent; } }
 .link.flash { animation: link-flash 1.4s ease-out; }
-@media (prefers-reduced-motion: reduce) { .link.flash { animation-duration: .01s; } }
+@media (prefers-reduced-motion: reduce) { .link.flash, #vars input.flash { animation-duration: .01s; } }
 
 /* Import box: drop a .json file onto it to open the file here */
 .drop-zone { position: relative; }
@@ -449,6 +480,11 @@ button:has(> .btn-icon) { display: inline-flex; align-items: center; gap: 6px; }
 .shortcut-name { font-weight: 600; }
 .keycaps { display: inline-flex; align-items: center; gap: 4px; }
 .keycaps .then { color: var(--muted); font-size: 12px; margin: 0 4px; }
+.keycaps .then.plus { margin: 0; }
+/* Keycaps inside a note sit on the text's centre line, like the note's icon. */
+.info:has(.keycaps) { align-items: center; }
+.info:has(.keycaps) .info-icon { margin-top: 0; }
+.info .keycaps { vertical-align: baseline; margin-right: 2px; } /* the labels share the text's baseline */
 .keycaps kbd.unset { color: var(--muted); font-style: italic; box-shadow: none; border-style: dashed; }
 .shortcut-note { font-size: 13px; }
 .shortcut > button { justify-self: start; }
@@ -476,3 +512,63 @@ button:has(> .btn-icon) { display: inline-flex; align-items: center; gap: 6px; }
   background: color-mix(in srgb, var(--accent) 6%, transparent);
 }
 .slide-toggle input { width: 16px; height: 16px; flex: none; }
+
+/* ---- Environment groups ---- */
+/* One card: the group tabs on top, then that group's Variables, Links and Shared links. The tabs stay
+   in view under the header while scrolling, so it's always clear which group is shown. */
+.group-panel { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; margin-bottom: 16px; }
+.group-panel section { background: none; border: 0; border-radius: 0; margin: 0; }
+.group-panel section + section { border-top: 1px solid var(--border); }
+.group-panel section[id] { scroll-margin-top: calc(var(--header-h, 90px) + var(--nav-h, 0px) + 56px); }
+/* Tabs on a shared baseline; the selected one is underlined in the accent colour. */
+.group-bar {
+  position: sticky; top: calc(var(--header-h, 90px) + var(--nav-h, 0px)); z-index: 1; /* slides under the header and section row as the card scrolls away */
+  display: flex; align-items: flex-end; gap: 4px; padding: 8px 12px 0;
+  border-bottom: 1px solid var(--border); border-radius: 10px 10px 0 0; background: var(--surface);
+}
+.group-tabs { display: flex; flex-wrap: wrap; gap: 2px; min-width: 0; }
+.group-tab { position: relative; display: flex; align-items: center; margin-bottom: -1px; border-bottom: 2px solid transparent; }
+.group-tab.selected { border-bottom-color: var(--accent); }
+.group-tab[draggable="true"] [role=tab] { cursor: grab; }
+.group-tab.dragging { opacity: .45; }
+/* Where a dragged tab will land: a bar on that side of the tab under the pointer. */
+.group-tab.drop-before { box-shadow: inset 2px 0 0 var(--accent); }
+.group-tab.drop-after { box-shadow: inset -2px 0 0 var(--accent); }
+.group-tab [role=tab] {
+  display: inline-flex; align-items: center; gap: 8px; padding: 8px 6px 8px 12px;
+  border: 0; border-radius: 8px 8px 0 0; background: none; color: var(--muted); font-weight: 600;
+}
+.group-tab [role=tab]:hover { color: var(--text); background: color-mix(in srgb, var(--accent) 6%, transparent); }
+.group-tab.selected [role=tab] { color: var(--accent); }
+.group-tab .count {
+  min-width: 20px; padding: 0 6px; border-radius: 999px; font-size: 11px; line-height: 18px; text-align: center;
+  background: var(--code-bg); color: var(--muted);
+}
+.group-tab.selected .count { background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); }
+.group-tab .more {
+  display: inline-grid; place-items: center; width: 26px; height: 26px; margin-right: 4px; padding: 0;
+  border: 0; border-radius: 6px; background: none; color: var(--muted);
+}
+.group-tab:not(.selected) .more { opacity: 0; }
+.group-tab:hover .more, .group-tab .more:focus-visible, .group-tab .more[aria-expanded="true"] { opacity: 1; }
+.group-tab .more:hover, .group-tab .more[aria-expanded="true"] { background: var(--code-bg); color: var(--text); }
+.group-tab .rename { width: 180px; margin: 4px 6px 5px; font-weight: 600; }
+.group-add {
+  display: inline-flex; align-items: center; gap: 6px; margin: 0 0 4px 6px; padding: 5px 10px;
+  border: 1px dashed var(--border); border-radius: 8px; background: none; color: var(--muted);
+}
+.group-add:hover, .group-add:focus-visible { color: var(--accent); border-color: var(--accent); }
+.group-menu {
+  position: absolute; top: calc(100% + 4px); left: 0; z-index: 20; min-width: 150px; padding: 4px;
+  display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: 10px;
+  background: var(--surface); box-shadow: 0 8px 24px rgb(0 0 0 / .18);
+}
+.group-menu [role=menuitem] {
+  display: flex; align-items: center; gap: 8px; padding: 7px 10px; border: 0; border-radius: 6px;
+  background: none; color: var(--text); text-align: left;
+}
+.group-menu [role=menuitem]:hover:not(:disabled), .group-menu [role=menuitem]:focus-visible {
+  background: color-mix(in srgb, var(--accent) 10%, transparent); outline: none;
+}
+.group-menu [role=menuitem].danger { color: var(--danger); }
+.group-menu [role=menuitem]:disabled { opacity: .45; cursor: not-allowed; }

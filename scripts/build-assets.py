@@ -68,10 +68,12 @@ window.chrome = {
 addEventListener("load", () => setTimeout(() => {
   const target = location.hash && document.querySelector(location.hash);
   if (target) {
-    target.style.scrollMarginTop = `${document.querySelector(".top").offsetHeight + 12}px`; // clear the sticky header
+    // Clear the sticky header, and the group tabs that stick below it for sections under them.
+    const tabs = target.closest(".group-panel") && target.id !== "groups" ? document.querySelector(".group-bar").offsetHeight : 0;
+    target.style.scrollMarginTop = `${document.querySelector(".top").offsetHeight + tabs + 12}px`;
     target.scrollIntoView();
   }
-  else document.querySelector(".toggle")?.click();
+  if (!shared) document.querySelector(".toggle")?.click(); // open the first link, to show its previews
 }, 150));
 </script>""" % {"seed": json.dumps(SEED), "source": json.dumps(SHARED_SOURCE), "id": SHARED_SOURCE["id"],
                "file": json.dumps(SHARED_FILE)}
@@ -141,16 +143,18 @@ def shoot(html, out, w, h):
     print(f"{out.relative_to(ROOT)}  {w}x{h}")
 
 
-# The small toolbar sizes have their own pixel-grid drawings; the detailed one blurs below 48px.
-SMALL_ICONS = {
+# Some sizes have their own pixel-grid drawings, by the size of the artwork: the toolbar's 16 and
+# 32, and 96 for the 128px icon (its artwork inside the padding). Scaling icon.svg down to those
+# puts edges between pixels, which blurs them.
+PIXEL_ICONS = {
     size: "data:image/svg+xml;base64," + base64.b64encode((SRC / f"icon-{size}.svg").read_bytes()).decode()
-    for size in (16, 32)
+    for size in (16, 32, 96)
 }
 
 
 def icon_page(size, pad):
     inner = size - 2 * pad
-    uri = SMALL_ICONS.get(size, ICON_URI)
+    uri = PIXEL_ICONS.get(inner, ICON_URI)
     return (f"<html><body style='margin:0;background:transparent'>"
             f"<img src='{uri}' width='{inner}' height='{inner}' style='display:block;margin:{pad}px'></body></html>")
 

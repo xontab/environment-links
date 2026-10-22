@@ -7,6 +7,9 @@
 #
 # previous-ref defaults to the latest v* tag. With no earlier release, everything is listed.
 #
+# Set CWS_RESULT to what the upload did (see publish-chrome-web-store.sh: submitted, uploaded,
+# not-submitted or not-uploaded) to word the notes for it; without it, they say what the workflow is about to do.
+#
 # Prints a Markdown checklist on stdout. When GITHUB_OUTPUT is set it also writes
 #   listing_changed=true|false   whether anything needs a dashboard edit
 #   attachments=<files>          space-separated files to attach to the release
@@ -75,15 +78,24 @@ fi
 listing_changed=false
 [ ${#items[@]} -gt 0 ] && listing_changed=true
 
+dashboard="[Developer Dashboard](https://chrome.google.com/webstore/devconsole)"
 echo "## Chrome Web Store listing"
 echo
 if [ "$listing_changed" = true ]; then
   if [ -n "$since" ]; then intro="The listing changed $since."; else intro="This is the first release, so every part of the listing needs filling in."; fi
-  echo "$intro The store's API can't edit it, so **this version was uploaded but not submitted for review**. Make these changes in the [Developer Dashboard](https://chrome.google.com/webstore/devconsole), then click **Submit for review**:"
+  if [ "${CWS_RESULT:-}" = "not-uploaded" ]; then
+    echo "$intro The store's API can't edit it, so when you upload this version, make these changes in the $dashboard too, then click **Submit for review**:"
+  else
+    echo "$intro The store's API can't edit it, so **this version was uploaded but not submitted for review**. Make these changes in the $dashboard, then click **Submit for review**:"
+  fi
   echo
   for item in "${items[@]}"; do echo "- [ ] $item"; done
 else
-  echo "Nothing in the store listing changed${since:+ $since}, so this version was submitted for review automatically."
+  case "${CWS_RESULT:-}" in
+    not-uploaded) echo "Nothing in the store listing changed${since:+ $since}, so only the package needs uploading." ;;
+    uploaded|not-submitted) echo "Nothing in the store listing changed${since:+ $since}. This version was uploaded but not submitted for review." ;;
+    *) echo "Nothing in the store listing changed${since:+ $since}, so this version was submitted for review automatically." ;;
+  esac
 fi
 if has PRIVACY.md; then
   echo
