@@ -335,9 +335,18 @@ input[readonly] { background: var(--code-bg); }
 .mg-tab.active { background: var(--surface); }
 .mg-tab i { width: 9px; height: 9px; border-radius: 3px; background: var(--g); }
 .mock-groups .g-dev { --g: #1e8e3e; } .mock-groups .g-stg { --g: #f9ab00; } .mock-groups .g-prd { --g: #d93025; }
+/* The same label inline in text, under Behaviour. */
+.mg-group.group-chip { display: inline-block; margin: 0 1px; font-size: 11px; line-height: 16px; vertical-align: 1px; }
 .mg-group.g-dev { background: #1e8e3e; } .mg-group.g-stg { background: #f9ab00; color: #202124; } .mg-group.g-prd { background: #d93025; }
 .mg-page { display: flex; align-items: center; gap: 8px; padding: 10px 10px 0; }
 .mg-page .mo-chip { color: #fff; background: #d93025; }
+/* Chrome's dark theme draws tab groups in lighter colours with dark text. */
+@media (prefers-color-scheme: dark) {
+  .mock-groups .g-dev { --g: #81c995; } .mock-groups .g-stg { --g: #fdd663; } .mock-groups .g-prd { --g: #f28b82; }
+  .mg-group.g-dev { background: #81c995; } .mg-group.g-stg { background: #fdd663; } .mg-group.g-prd { background: #f28b82; }
+  .mg-group, .mg-page .mo-chip { color: #202124; }
+  .mg-page .mo-chip { background: #f28b82; }
+}
 .mock-share { padding: 14px; display: grid; justify-items: center; gap: 4px; position: relative; }
 .ms-repo { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border: 1px solid var(--border); border-radius: 8px; }
 .ms-repo > span { display: grid; }

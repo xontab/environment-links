@@ -14,6 +14,7 @@ e backoffice
 
 • Press Enter to open the highlighted environment, or use the arrow keys to choose another.
 • Add environment names to narrow the list: "e backoffice prod" shows only production, and "e backoffice dev stag" shows dev and staging.
+• Or start with the environment: "e prod" lists every link in production, and "e prod backoffice" works the same as "e backoffice prod".
 • Add a path to go straight to a page: "e backoffice stag /players/123" opens backoffice.staging.example.com/players/123.
 • Type part of a name to search: "e back" finds every link containing "back".
 • Press Alt+Enter to open the link in a new tab.

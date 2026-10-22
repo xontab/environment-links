@@ -1,4 +1,4 @@
-import { DEFAULT_CONFIG, normalizeConfig, search, displayUrl } from "./core.js";
+import { DEFAULT_CONFIG, normalizeConfig, search, displayUrl, hasCredentials } from "./core.js";
 import { loadEffectiveConfig } from "./shared.js";
 import { openLink } from "./open.js";
 
@@ -71,6 +71,72 @@ function select(row, col) {
   li.classList.add("selected-row");
   if (url) li.querySelector(".target")?.replaceChildren("Enter opens ", el("span", { className: "url" }, displayUrl(url)));
   li.scrollIntoView({ block: "nearest" });
+  const envs = node.closest(".envs");
+  if (envs) keepInView(envs, node);
+}
+
+// ---- A link's environments: one row that scrolls sideways ----
+
+const EDGE = 28; // the faded strip at a side with more environments, kept clear of the selection
+
+/** Fade the sides that have more environments past them. */
+function markEdges(envs) {
+  const max = envs.scrollWidth - envs.clientWidth;
+  for (const node of [envs, envs.parentElement]) { // the wrapper shows the arrows
+    node.classList.toggle("more-left", envs.scrollLeft > 1);
+    node.classList.toggle("more-right", envs.scrollLeft < max - 1);
+  }
+}
+
+/** Scroll the row so the chosen environment isn't hidden under a faded edge. */
+function keepInView(envs, chip) {
+  const left = chip.offsetLeft - envs.offsetLeft;
+  const right = left + chip.offsetWidth;
+  if (left - EDGE < envs.scrollLeft) envs.scrollLeft = Math.max(0, left - EDGE);
+  else if (right + EDGE > envs.scrollLeft + envs.clientWidth) envs.scrollLeft = right + EDGE - envs.clientWidth;
+  markEdges(envs);
+}
+
+const HOVER_SPEED = 5; // pixels per tick while the pointer rests on a faded edge
+
+function envsRow(chips) {
+  const envs = el("div", { className: "envs" }, ...chips);
+  const wrap = el("div", { className: "envs-wrap" },
+    envs, el("span", { className: "edge-arrow left", ariaHidden: "true" }, "‹"),
+    el("span", { className: "edge-arrow right", ariaHidden: "true" }, "›"));
+
+  // Resting the pointer on a faded edge scrolls that way until the end, or until it moves off.
+  let direction = 0;
+  let timer = null;
+  const hover = (dir) => {
+    direction = dir;
+    if (!dir) { clearInterval(timer); timer = null; return; }
+    timer ??= setInterval(() => {
+      const before = envs.scrollLeft;
+      envs.scrollLeft += direction * HOVER_SPEED;
+      markEdges(envs);
+      if (envs.scrollLeft === before) hover(0); // reached the end
+    }, 16);
+  };
+  envs.addEventListener("mousemove", (e) => {
+    const { left, right } = envs.getBoundingClientRect();
+    const more = (side) => envs.classList.contains(`more-${side}`);
+    hover(e.clientX < left + EDGE && more("left") ? -1 : e.clientX > right - EDGE && more("right") ? 1 : 0);
+  });
+  envs.addEventListener("mouseleave", () => hover(0));
+  envs.addEventListener("scroll", () => markEdges(envs), { passive: true });
+  // A mouse wheel scrolls the row sideways while it can; at either end the list scrolls as usual.
+  // Trackpads scroll it sideways by themselves.
+  envs.addEventListener("wheel", (e) => {
+    if (Math.abs(e.deltaX) >= Math.abs(e.deltaY)) return;
+    const max = envs.scrollWidth - envs.clientWidth;
+    const next = Math.max(0, Math.min(max, envs.scrollLeft + e.deltaY));
+    if (next === envs.scrollLeft) return;
+    e.preventDefault();
+    envs.scrollLeft = next;
+    markEdges(envs);
+  }, { passive: false });
+  return wrap;
 }
 
 function render() {
@@ -102,7 +168,7 @@ function render() {
     const chips = envs.map((r) =>
       item(
         el("a", {
-          href: r.url,
+          href: hasCredentials(r.url) ? "#" : r.url, // clicks open it; an href would show the password on hover
           title: r.missing.length ? `${displayUrl(r.url)}\nMissing: ${r.missing.join(", ")}` : displayUrl(r.url),
           className: r.missing.length ? "warn" : "",
         }, r.env.name),
@@ -114,7 +180,7 @@ function render() {
     list.append(
       el("li", {},
         el("div", { className: "link-name" }, el("span", { className: "key" }, link.key, link.source ? el("span", { className: "tag", title: `Shared from ${link.source}` }, "shared") : ""), el("small", { title: link.template }, link.template)),
-        el("div", { className: "envs" }, ...chips.map((c) => c.node)),
+        envsRow(chips.map((c) => c.node)),
         el("div", { className: "target", "aria-live": "polite" })
       )
     );
@@ -132,6 +198,7 @@ function render() {
     )
   );
 
+  list.querySelectorAll(".envs").forEach(markEdges); // now that they're laid out
   wantCol = 0;
   select(0, 0);
 }

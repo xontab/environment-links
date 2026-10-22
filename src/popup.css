@@ -15,6 +15,10 @@ body.popup { width: 400px; max-height: 580px; padding: 10px; overflow-y: auto; }
   border-color: color-mix(in srgb, var(--accent) 35%, transparent); /* top, right and bottom; the left edge is the accent bar */
 }
 #list li.selected-row + li { border-top-color: transparent; }
+/* A light tint on the link under the pointer. Background only, so the row keeps its size. */
+#list li:not(.group-heading, .settings-row, .empty-state, .selected-row):hover {
+  background: color-mix(in srgb, var(--accent) 5%, transparent); border-radius: 2px 10px 10px 2px;
+}
 #list li.selected-row .key { color: var(--accent); }
 .target { font-size: 11px; color: var(--muted); margin-top: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .target:empty { display: none; }
@@ -23,7 +27,27 @@ body.popup { width: 400px; max-height: 580px; padding: 10px; overflow-y: auto; }
 .link-name .key { flex: none; white-space: nowrap; display: flex; gap: 6px; align-items: center; }
 .link-name small { color: var(--muted); font-weight: 400; font: 11px ui-monospace, SFMono-Regular, Menlo, monospace;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.envs { display: flex; flex-wrap: wrap; gap: 6px; }
+/* One row per link, scrolled sideways (wheel, trackpad or arrow keys) instead of wrapping onto more
+   lines. A side with more environments past it fades out. */
+.envs {
+  display: flex; gap: 6px; padding: 1px 0; overflow-x: auto; scrollbar-width: none; overscroll-behavior-x: contain;
+  --fade-left: 0px; --fade-right: 0px;
+  mask-image: linear-gradient(to right, transparent, #000 var(--fade-left), #000 calc(100% - var(--fade-right)), transparent);
+}
+.envs::-webkit-scrollbar { display: none; }
+.envs.more-left { --fade-left: 28px; }
+.envs.more-right { --fade-right: 28px; }
+.envs > a { flex: none; }
+/* Arrows on a faded edge while the pointer is over the row: resting on one scrolls that way. */
+.envs-wrap { position: relative; }
+.edge-arrow {
+  position: absolute; top: 50%; transform: translateY(-50%); pointer-events: none; opacity: 0;
+  font: 700 16px/1 system-ui, sans-serif; color: var(--accent); transition: opacity .12s;
+}
+.edge-arrow.left { left: 2px; }
+.edge-arrow.right { right: 2px; }
+.envs-wrap.more-left:hover .edge-arrow.left, .envs-wrap.more-right:hover .edge-arrow.right { opacity: 1; }
+@media (prefers-reduced-motion: reduce) { .edge-arrow { transition: none; } }
 .envs a, a.settings {
   display: inline-block; padding: 3px 10px; border: 1px solid var(--border); border-radius: 999px;
   color: var(--text); text-decoration: none; font-size: 12px; font-weight: 600;
@@ -39,6 +63,11 @@ body.popup { width: 400px; max-height: 580px; padding: 10px; overflow-y: auto; }
   letter-spacing: .06em; text-transform: uppercase; color: var(--muted);
 }
 #list li.group-heading + li { border-top-color: transparent; }
+/* Between groups: a gap and a stronger line than the one between links. */
+#list li.group-heading:not(:first-child) {
+  margin-top: 8px; padding-top: 14px; border-top: 2px solid var(--border);
+}
+#list li.selected-row + li.group-heading { border-top-color: var(--border); } /* keep it after a selected link */
 li.settings-row { display: flex; justify-content: space-between; align-items: center; }
 li.settings-row .muted { font-size: 12px; }
 #list li.empty-state {

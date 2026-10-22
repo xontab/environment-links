@@ -289,3 +289,94 @@ test("renaming a variable inside a link changes its template and overrides", () 
   assert.equal(link.template, "x.{{D}}.{{D}}/{{dd}}");
   assert.deepEqual(link.overrides, { prod: "{{D}}.io" });
 });
+
+// ---- Settings files ------------------------------------------------------------------------------
+
+import { SETTINGS_FORMAT, exportSettings, importSettings } from "../src/core.js";
+
+test("exported settings say which format they're in, and import back the same", () => {
+  const file = JSON.parse(JSON.stringify(exportSettings(GROUPS)));
+  assert.equal(file.formatVersion, SETTINGS_FORMAT);
+  assert.deepEqual(importSettings(file), GROUPS);
+  assert.equal("formatVersion" in importSettings(file), false); // not kept in the settings themselves
+});
+
+test("files from before format versions are upgraded; newer formats are refused", () => {
+  const old = importSettings(EXAMPLE); // format 1: no formatVersion, everything at the top level
+  assert.deepEqual(old.groups.map((g) => [g.name, g.links.length]), [["Default", 1]]);
+  assert.throws(() => importSettings({ formatVersion: SETTINGS_FORMAT + 1, groups: [] }), /newer version of Environment Links/);
+  assert.throws(() => importSettings({ formatVersion: "2" }), /whole number/);
+  assert.throws(() => importSettings([]), /JSON object/);
+});
+
+// ---- Basic auth in a URL --------------------------------------------------------------------
+
+import { encodeCredentials, hasCredentials, displayUrl } from "../src/core.js";
+
+test("a user and password in a template are kept, encoded where they'd break the URL", () => {
+  const env = { variables: { USER: "admin", PASS: "p@ss:w#rd" } };
+  assert.equal(render("{{USER}}:{{PASS}}@grafana.example.com/d", env).url, "https://admin:p%40ss%3Aw%23rd@grafana.example.com/d");
+  assert.equal(encodeCredentials("https://admin:p%40ss@host"), "https://admin:p%40ss@host"); // already encoded
+  assert.equal(encodeCredentials("https://token@host:8080/x"), "https://token@host:8080/x");
+  assert.equal(encodeCredentials("https://host/users/@me"), "https://host/users/@me"); // an @ in the path isn't one
+  assert.equal(render("{{USER}}:{{PASS}}@h", { variables: { USER: "a" } }).url, "https://a:{{PASS}}@h"); // missing stays readable
+});
+
+test("a password with any special characters opens as the address bar would", () => {
+  const pass = String.raw`Ab<C9\D!5(E]9^n?Z:I<]`; // "\" ends the host in an https URL unless it's encoded
+  const host = "d123.cloudfront.net";
+  for (const url of [
+    render(`https://admin:${encodeURIComponent(pass)}@${host}`, {}).url, // typed already encoded
+    render("{{USER}}:{{PASS}}@" + host, { variables: { USER: "admin", PASS: pass } }).url, // from variables
+    render("{{USER}}:{{PASS}}@" + host, { variables: { USER: "admin", PASS: encodeURIComponent(pass) } }).url,
+  ]) {
+    const parsed = new URL(url); // the same URL parser as Chrome's
+    assert.equal(parsed.host, host);
+    assert.equal(decodeURIComponent(parsed.password), pass);
+    assert.equal(url, `https://admin:${encodeURIComponent(pass)}@${host}`);
+  }
+});
+
+test("passwords are hidden wherever a URL is shown", () => {
+  assert.equal(displayUrl("https://admin:p%40ss@grafana.example.com/d"), "admin:••••@grafana.example.com/d");
+  assert.equal(displayUrl("https://token@host/x"), "token@host/x");
+  assert.equal(displayUrl("http://u:p@localhost:8080"), "http://u:••••@localhost:8080");
+  assert.equal(displayUrl("https://host/users/@me"), "host/users/@me");
+  assert.equal(hasCredentials("https://u:p@h"), true);
+  assert.equal(hasCredentials("https://h/@me"), false);
+  const cfg = normalizeConfig({ environments: [{ name: "DEV", variables: { P: "secret" } }], links: [{ key: "k", template: "me:{{P}}@k.io" }] });
+  assert.doesNotMatch(describe(search("k", cfg)[0]), /secret/);
+});
+
+// ---- Environments in the search ---------------------------------------------------------------
+
+test("words can come in any order: link names first, environments second", () => {
+  const found = (q, cfg = config) => search(q, cfg).map((r) => `${r.link.key}@${r.env.name}`);
+  // Only an environment: every link there.
+  assert.deepEqual(found("prod"), ["backoffice@PRODUCTION"]);
+  assert.deepEqual(found("payments live", GROUPS), ["backoffice@LIVE", "wallet@LIVE"]);
+  // The environment first, then the link.
+  assert.deepEqual(found("stag backoffice"), ["backoffice@STAGING"]);
+  assert.deepEqual(found("stag backoffice /users").length, 1);
+  // A word that names a link and an environment: the link's matches, then the environment's.
+  const both = normalizeConfig({ ...EXAMPLE, links: [...EXAMPLE.links, { key: "devtools", template: "tools.{{DOMAIN}}" }] });
+  assert.deepEqual(found("dev", both), [
+    "devtools@DEV", "devtools@STAGING", "devtools@PREPROD", "devtools@PRODUCTION", "backoffice@DEV",
+  ]);
+  assert.deepEqual(found("nope"), []); // names nothing at all
+});
+
+test("a link name and an environment narrow to that link there, however the environment is written", () => {
+  const envs = (names) => names.map((n, i) => ({ id: `e${i}`, name: n, variables: { E: n.toLowerCase() } }));
+  const found = (q, names) => search(q, normalizeConfig({
+    environments: envs(names), links: [{ key: "backoffice", template: "bo.{{E}}.io" }, { key: "grafana", template: "g.{{E}}.io" }],
+  })).map((r) => `${r.link.key}@${r.env.name}`);
+  assert.deepEqual(found("backoffice preprod", ["DEV", "PREPROD", "PRODUCTION"]), ["backoffice@PREPROD"]);
+  assert.deepEqual(found("backoffice preprod", ["Dev", "Pre-Prod", "Prod"]), ["backoffice@Pre-Prod"]);
+  assert.deepEqual(found("backoffice preprod", ["EU DEV", "EU PREPROD", "EU PROD"]), ["backoffice@EU PREPROD"]);
+  assert.deepEqual(found("preprod backoffice", ["Dev", "Pre Prod", "Prod"]), ["backoffice@Pre Prod"]);
+  // A whole name wins over the start of a word: "prod" is Prod, not Pre-Prod as well.
+  assert.deepEqual(found("backoffice prod", ["Dev", "Pre-Prod", "Prod"]), ["backoffice@Prod"]);
+  // Without one, the start of any word: "prod" finds PRODUCTION but not PREPROD.
+  assert.deepEqual(found("backoffice prod", ["DEV", "PREPROD", "PRODUCTION"]), ["backoffice@PRODUCTION"]);
+});

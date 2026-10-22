@@ -154,13 +154,16 @@ PIXEL_ICONS = {
 
 def icon_page(size, pad):
     inner = size - 2 * pad
-    uri = PIXEL_ICONS.get(inner, ICON_URI)
+    # A pixel-grid drawing at a whole multiple stays sharp (96 drawn at 192 for the 256px icon).
+    grid = next((g for g in sorted(PIXEL_ICONS, reverse=True) if inner % g == 0), None)
+    uri = PIXEL_ICONS[grid] if grid else ICON_URI
     return (f"<html><body style='margin:0;background:transparent'>"
             f"<img src='{uri}' width='{inner}' height='{inner}' style='display:block;margin:{pad}px'></body></html>")
 
 
-# Extension icons: full bleed at small sizes; 128 uses Google's 96px artwork + 16px padding.
-for size, pad in ((16, 0), (32, 0), (48, 2), (128, 16)):
+# Extension icons: full bleed at small sizes; 128 uses Google's 96px artwork + 16px padding, and
+# 256 is the same at twice the size, for screens with twice the pixels (Chrome picks it there).
+for size, pad in ((16, 0), (32, 0), (48, 2), (128, 16), (256, 32)):
     shoot(icon_page(size, pad), ROOT / "icons" / f"icon{size}.png", size, size)
 shoot(icon_page(128, 16), ROOT / "store" / "store-icon-128.png", 128, 128)
 

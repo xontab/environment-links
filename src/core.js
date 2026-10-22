@@ -42,6 +42,36 @@ export function normalizeConfig(raw) {
   };
 }
 
+// ---- Settings files (Export / Import) ---------------------------------------------
+
+/**
+ * The version of the exported settings file. Bump it for a change that older versions of the
+ * extension can't read, and teach normalizeConfig to upgrade files from before it.
+ *   1  everything at the top level (no "formatVersion"; before environment groups)
+ *   2  "groups", each with its own variables, environments and links
+ */
+export const SETTINGS_FORMAT = 2;
+
+/** The file Export saves: the user's settings, marked with the format they're in. */
+export function exportSettings(config) {
+  return { formatVersion: SETTINGS_FORMAT, ...config };
+}
+
+/**
+ * Read an exported settings file, from any version up to this one. Throws with a readable
+ * message for one that isn't a settings file, or that a newer version of the extension wrote.
+ */
+export function importSettings(raw) {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) throw new Error("expected a JSON object");
+  const version = raw.formatVersion ?? 1;
+  if (!Number.isInteger(version) || version < 1) throw new Error(`"formatVersion" should be a whole number, not ${JSON.stringify(version)}`);
+  if (version > SETTINGS_FORMAT) {
+    throw new Error(`this file is in format ${version}, from a newer version of Environment Links. Update the extension, then import it again.`);
+  }
+  const { formatVersion, ...settings } = raw;
+  return normalizeConfig(settings);
+}
+
 /** One environment group: its name plus the variables, environments and links in it. */
 export function normalizeGroup(raw, index = 0) {
   const cfg = raw && typeof raw === "object" ? raw : {};
@@ -347,12 +377,18 @@ export function slug(text) {
 export function render(template, env, globals = {}) {
   const vars = { ...globals, ...(env?.variables || {}) };
   const missing = [];
-  const out = template.replace(VAR_RE, (whole, name) => {
-    if (Object.prototype.hasOwnProperty.call(vars, name)) return String(vars[name]);
+  // Values filled into the user or password ("{{USER}}:{{PASS}}@host") are encoded, so one with
+  // "@", ":", "/" or "#" in it can't end that part early. Found in the template, before any value is in.
+  const credentials = template.match(TEMPLATE_CREDENTIALS_RE);
+  const credentialsEnd = credentials ? credentials[0].length : -1;
+  const out = template.replace(VAR_RE, (whole, name, offset) => {
+    if (Object.prototype.hasOwnProperty.call(vars, name)) {
+      return offset < credentialsEnd ? encodeUserinfo(String(vars[name])) : String(vars[name]);
+    }
     missing.push(name);
     return whole;
   });
-  return { url: withScheme(out.trim()), missing };
+  return { url: encodeCredentials(withScheme(out.trim())), missing };
 }
 
 export function withScheme(url) {
@@ -360,8 +396,46 @@ export function withScheme(url) {
   return /^[a-z][a-z0-9+.-]*:\/\//i.test(url) ? url : `https://${url}`;
 }
 
+// ---- Credentials in a URL (basic auth) ---------------------------------------------
+
+// "https://user:password@host/...": everything between the scheme and the last "@" before the
+// path is the user and password. Chrome sends them as basic auth when it opens the page.
+const CREDENTIALS_RE = /^([a-z][a-z0-9+.-]*:\/\/)([^/?#]*)@/i;
+// The same in a template, where the scheme is optional (https:// is added later).
+const TEMPLATE_CREDENTIALS_RE = /^\s*(?:[a-z][a-z0-9+.-]*:\/\/)?[^/?#]*@/i;
+
+const safeDecode = (text) => { try { return decodeURIComponent(text); } catch { return text; } };
+// Everything but letters, digits and - _ . ! ~ * ' ( ), as the address bar does: a bare "\" counts
+// as "/" in an https URL and "<" or "]" make it invalid. A {{VARIABLE}} with no value yet stays readable.
+const encodeUserinfo = (text) => String(text)
+  .split(/(\{\{\s*[A-Za-z_][A-Za-z0-9_]*\s*\}\})/)
+  .map((part, i) => (i % 2 ? part : encodeURIComponent(safeDecode(part))))
+  .join("");
+
+/**
+ * Percent-encode the user and password, so a password with "@", ":" or "#" in it doesn't break
+ * the URL. Already-encoded ones are left as they are.
+ */
+export function encodeCredentials(url) {
+  const match = url.match(CREDENTIALS_RE);
+  if (!match) return url;
+  const [whole, scheme, info] = match;
+  const colon = info.indexOf(":"); // the user can't contain ":", so the first one starts the password
+  const userinfo = colon < 0 ? encodeUserinfo(info)
+    : `${encodeUserinfo(info.slice(0, colon))}:${encodeUserinfo(info.slice(colon + 1))}`;
+  return `${scheme}${userinfo}@${url.slice(whole.length)}`;
+}
+
+export const hasCredentials = (url) => CREDENTIALS_RE.test(String(url || ""));
+
+/** A URL for showing: without "https://", and with any password hidden ("admin:••••@host"). */
 export function displayUrl(url) {
-  return url.replace(/^https:\/\//i, "");
+  return url
+    .replace(CREDENTIALS_RE, (whole, scheme, info) => {
+      const colon = info.indexOf(":");
+      return `${scheme}${colon < 0 ? info : `${info.slice(0, colon)}:••••`}@`;
+    })
+    .replace(/^https:\/\//i, "");
 }
 
 /** Render a link for every environment in its group it applies to (respecting per-environment overrides). */
@@ -389,7 +463,22 @@ export function parseQuery(text) {
 }
 
 const startsAny = (names, filters) => filters.some((f) => names.some((n) => n.startsWith(f)));
-const envMatches = (env, filters) => !filters.length || startsAny([env.name.toLowerCase(), env.id.toLowerCase()], filters);
+
+// Environment names are matched ignoring case, spaces and dashes ("preprod" finds "Pre-Prod"), at
+// the start of the name or of any word in it ("preprod" finds "EU PREPROD"). If some environment's
+// whole name is the word, only those match, so "prod" picks "Prod" and not "Pre-Prod" too.
+const squash = (text) => String(text).toLowerCase().replace(/[^a-z0-9]/g, "");
+const envNames = (env) => [env.name, env.id];
+const isEnvNamed = (env, word) => envNames(env).some((n) => squash(n) === squash(word));
+const envStartsWith = (env, word) => envNames(env).some((n) =>
+  squash(n).startsWith(squash(word)) || n.toLowerCase().split(/[^a-z0-9]+/).some((w) => w && w.startsWith(squash(word))));
+
+/** For each filter word, whether an environment matches it: by its whole name if any is, else by its start. */
+function envFilter(filters, environments) {
+  if (!filters.length) return () => true;
+  const tests = filters.map((f) => (environments.some((e) => isEnvNamed(e, f)) ? (e) => isEnvNamed(e, f) : (e) => envStartsWith(e, f)));
+  return (env) => tests.some((test) => test(env));
+}
 
 function appendPath(url, path) {
   if (!path) return url;
@@ -408,10 +497,29 @@ function score(key, term) {
 
 /**
  * Ordered list of { env, link, group, url, missing } results for omnibox text, from every group.
- * A filter word that starts a group's name picks that group; the others pick environments.
+ *
+ * Words can come in any order. Link names come first: the first word that matches a link's name
+ * picks the links, and the others narrow them by environment, or by group when one starts a group's
+ * name. Environments are the second priority: with no word matching a link ("prod"), every link is
+ * listed for the matching environments, and a single word that matches both ("dev") lists the links
+ * it names first, then every link in the environments it names.
  */
 export function search(text, config) {
-  const { term, envFilters: filters, path } = parseQuery(text);
+  const { term, envFilters, path } = parseQuery(text);
+  const words = [term, ...envFilters].filter(Boolean);
+  const linkWord = words.find((w) => config.groups.some((g) => g.links.some((l) => l.key && score(l.key, w) !== null)));
+  const filters = words.filter((w, i) => i !== words.indexOf(linkWord));
+  const results = matchLinks(linkWord ?? "", filters, path, config);
+  if (words.length !== 1 || !linkWord) return results;
+
+  // One word that names links: environments it names come second, without repeating a result.
+  const seen = new Set(results.map((r) => `${r.group.id}\u0000${r.link.key}\u0000${r.env.id}`));
+  return [...results, ...matchLinks("", [linkWord], path, config)
+    .filter((r) => !seen.has(`${r.group.id}\u0000${r.link.key}\u0000${r.env.id}`))];
+}
+
+/** Links whose name matches term (all of them for ""), in the environments and groups filters pick. */
+function matchLinks(term, filters, path, config) {
   const groupNames = (g) => [g.name.toLowerCase(), g.id.toLowerCase()];
   const groupFilters = config.groups.length > 1
     ? filters.filter((f) => config.groups.some((g) => startsAny(groupNames(g), [f])))
@@ -424,9 +532,10 @@ export function search(text, config) {
     .filter((x) => x.s !== null)
     .sort((a, b) => a.s - b.s || a.l.key.localeCompare(b.l.key) || a.order - b.order);
 
+  const envMatches = envFilter(envFilters, groups.flatMap((g) => g.environments));
   return links.flatMap(({ l, group }) =>
     expandLink(l, group)
-      .filter((r) => envMatches(r.env, envFilters))
+      .filter((r) => envMatches(r.env))
       .map((r) => ({ ...r, url: appendPath(r.url, path) }))
   );
 }

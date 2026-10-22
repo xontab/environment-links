@@ -33,7 +33,7 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 
 chrome.omnibox.onInputStarted.addListener(() => {
   chrome.omnibox.setDefaultSuggestion({
-    description: "Type a link name, e.g. <match>backoffice</match> [env] [/path]",
+    description: "Type a link or environment, e.g. <match>backoffice</match>, <match>prod</match> or <match>backoffice prod</match> [/path]",
   });
 });
 
@@ -47,7 +47,7 @@ chrome.omnibox.onInputChanged.addListener(async (text, suggest) => {
     chrome.omnibox.setDefaultSuggestion({
       description: text.trim()
         ? "No matching link. Press Enter to open settings."
-        : "Type a link name, e.g. <match>backoffice</match> [env] [/path]",
+        : "Type a link or environment, e.g. <match>backoffice</match>, <match>prod</match> or <match>backoffice prod</match> [/path]",
     });
     suggest([]);
     return;

@@ -1,6 +1,6 @@
 # Privacy policy for Environment Links
 
-Last updated: 21 October 2026
+Last updated: 22 October 2026
 
 Environment Links is a Chrome extension by xonTAB. It opens the same link in different environments (such as dev, staging and production) from Chrome's address bar or toolbar. This policy explains what data the extension handles and where it goes.
 
@@ -12,7 +12,7 @@ Environment Links is a Chrome extension by xonTAB. It opens the same link in dif
 
 ## What the extension stores
 
-**Your settings.** The environments, variables, links and preferences you set up are saved with Chrome's storage API in your Chrome profile. If you have Chrome sync turned on, Chrome copies them to your other computers. That's done by Google as part of Chrome sync, not by the extension, and xonTAB never receives them.
+**Your settings.** The environments, variables, links and preferences you set up are saved with Chrome's storage API in your Chrome profile. If you have Chrome sync turned on, Chrome copies them to your other computers. That's done by Google as part of Chrome sync, not by the extension, and xonTAB never receives them. This includes any user name or password you put in a link or a variable for basic auth (`user:password@host`), and they're also in any file you export.
 
 **Shared links files.** If you add a shared links file from a GitHub repository, the extension keeps the most recent copy of it on your device, so your links keep working if GitHub can't be reached.
 

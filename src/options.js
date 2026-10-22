@@ -1,6 +1,6 @@
 import {
   DEFAULT_CONFIG, DEFAULT_SHARED_PATH, normalizeConfig, normalizeSource, expandLink, displayUrl, slug,
-  resolveConfig, parseGitHubLocation, buildSharedFile, isEmptyConfig, normalizeGroup, sourceGroupId, isExcluded, variablesUsed, toVariableName, renameInLink,
+  resolveConfig, parseGitHubLocation, buildSharedFile, isEmptyConfig, normalizeGroup, sourceGroupId, isExcluded, variablesUsed, toVariableName, renameInLink, exportSettings, importSettings, hasCredentials,
 } from "./core.js";
 import { GROUP_PERMISSION } from "./open.js";
 import {
@@ -474,13 +474,20 @@ function renderVars() {
     )
   );
 
-  const cell = (name, value, onvalue, dataset) =>
-    el("td", {},
+  const cell = (name, value, onvalue, dataset) => {
+    const secret = isSecret(name);
+    return el("td", {},
       el("input", {
         class: "mono", value: value ?? "", "aria-label": name, dataset,
+        // A password or token is dots until the cell is being edited.
+        ...(secret ? {
+          type: "password", autocomplete: "off",
+          onfocus: (e) => { e.target.type = "text"; }, onblur: (e) => { e.target.type = "password"; },
+        } : {}),
         oninput: (e) => { onvalue(e.target.value); changed(); },
       })
     );
+  };
   const assign = (obj, name, value) => {
     if (value === "") delete obj[name];
     else obj[name] = value;
@@ -549,12 +556,16 @@ function refreshPlaceholders() {
     const value = input.dataset.default
       ? effective.sharedGlobals[name]
       : effective.environments.find((e) => e.id === envId)?.inherited[name];
-    input.placeholder = value ?? "";
+    const shown = isSecret(name) && value ? "••••" : value; // an inherited password stays hidden too
+    input.placeholder = shown ?? "";
     input.title = value != null && value !== ""
-      ? `Blank, so it uses ${input.dataset.default ? "the shared default" : "the default"}: ${value}`
+      ? `Blank, so it uses ${input.dataset.default ? "the shared default" : "the default"}: ${shown}`
       : "";
   });
 }
+
+/** A variable that holds a password or token, by its name: shown as dots in the grid. */
+const isSecret = (name) => /PASS|SECRET|TOKEN|API_?KEY/i.test(name);
 
 /** Variable names are capitals only: change what's typed as it's typed, keeping the cursor where it was. */
 function capitalise(input) {
@@ -704,7 +715,7 @@ function moveItem(list, index, delta) {
 // ---- Links ----------------------------------------------------------------
 
 function previewRow(env, ref, input, applies = null) {
-  return el("div", { class: "env-row" },
+  return el("div", { class: "env-row", dataset: { env: env.id } },
     el("span", { class: "name" }, env.name),
     input,
     applies,
@@ -1002,6 +1013,13 @@ function renderSharedLinks() {
 }
 
 function renderPreviews() {
+  // Environment names, which change as they're typed in the Environments grid.
+  document.querySelectorAll(".env-row[data-env]").forEach((row) => {
+    const env = effective.environments.find((e) => e.id === row.dataset.env);
+    if (!env) return;
+    row.querySelector(".name").textContent = env.name;
+    row.querySelector("input.mono")?.setAttribute("aria-label", `Override for ${env.name}`);
+  });
   document.querySelectorAll(".preview").forEach((node) => {
     const ref = node.dataset.link;
     const link = ref.startsWith("s") ? effective.sharedLinks[Number(ref.slice(1))] : config.links[Number(ref)];
@@ -1012,7 +1030,7 @@ function renderPreviews() {
     if (!result) return node.replaceChildren();
     const children = [
       result.url
-        ? el("a", { href: result.url, target: "_blank", rel: "noreferrer" }, displayUrl(result.url))
+        ? previewLink(result.url)
         : el("span", {}, "(empty)"),
     ];
     if (result.missing.length) {
@@ -1024,7 +1042,19 @@ function renderPreviews() {
 }
 
 /**
- * A missing variable, as a button: it adds the variable to Variables if it isn't there yet, then
+ * A preview's link. One with a password opens from a click instead of its href, so hovering it
+ * doesn't show the password in Chrome's status bar.
+ */
+function previewLink(url) {
+  if (!hasCredentials(url)) return el("a", { href: url, target: "_blank", rel: "noreferrer" }, displayUrl(url));
+  return el("a", {
+    href: "#", title: "Opens with the user and password in the URL",
+    onclick: (e) => { e.preventDefault(); window.open(url, "_blank", "noopener,noreferrer"); },
+  }, displayUrl(url));
+}
+
+/**
+ * A missing variable, as a button: it adds the variable to Environments if it isn't there yet, then
  * goes to this environment's cell for it, ready to type the value.
  */
 function missingButton(name, env, shared) {
@@ -1033,9 +1063,9 @@ function missingButton(name, env, shared) {
   // {{NAME}} in their links too; a shared link's file can't be changed, so it gets no button.
   const upper = toVariableName(name);
   if (!known && upper !== name && shared) return el("span", { class: "warn" }, name);
-  const title = known ? `Set ${name} for ${env.name} in Variables`
-    : upper !== name ? `Add ${upper} to Variables, change {{${name}}} to {{${upper}}} in your links, and set it for ${env.name}`
-    : `Add ${name} to Variables and set it for ${env.name}`;
+  const title = known ? `Set ${name} for ${env.name} in Environments`
+    : upper !== name ? `Add ${upper} to Environments, change {{${name}}} to {{${upper}}} in your links, and set it for ${env.name}`
+    : `Add ${name} to Environments and set it for ${env.name}`;
   return el("button", {
     type: "button", class: "add-missing", title,
     onclick: () => {
@@ -1584,7 +1614,7 @@ async function showGroupTabs() {
 }
 
 $("#export").addEventListener("click", () => {
-  const blob = new Blob([JSON.stringify(settings, null, 2) + "\n"], { type: "application/json" });
+  const blob = new Blob([JSON.stringify(exportSettings(settings), null, 2) + "\n"], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const date = new Date().toISOString().slice(0, 10);
   el("a", { href: url, download: `environment-links-${date}.json` }).click();
@@ -1594,12 +1624,12 @@ $("#export").addEventListener("click", () => {
 
 async function importJson(text, from) {
   try {
-    const parsed = JSON.parse(text);
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("expected a JSON object");
+    const imported = importSettings(JSON.parse(text)); // checks the format before asking
     if (!confirm(`Replace all your groups, environments, variables and links with ${from}?`)) return;
-    settings = normalizeConfig(parsed);
+    settings = imported;
     openLink = null;
-    restructured();
+    render();
+    await saveNow(); // save first, so "Saved" doesn't replace the message below
     await forgetRemovedSources(settings);
     setStatus("Imported", "ok");
   } catch (err) {

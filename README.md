@@ -52,6 +52,10 @@ Chrome only hands address-bar input to an extension after its keyword, so type t
 | `backoffice dev stag`            | DEV and STAGING                           |
 | `backoffice stag /players/123`   | STAGING, with `/players/123` appended     |
 | `back`                           | every link whose name contains `back`     |
+| `prod`                           | every link, in environments starting with `prod` |
+| `stag backoffice`                | the same as `backoffice stag`             |
+
+Words can come in any order. Link names come first; a word that isn't a link's name narrows the list by environment (or by group). A single word that names both a link and an environment, such as `dev` with a `devtools` link, lists the `devtools` link first and then every link in DEV.
 
 `Enter` opens the top suggestion; arrow down to pick another. `Alt+Enter` opens it in a new tab.
 
@@ -77,10 +81,11 @@ Then click reload on the extension in `chrome://extensions`.
 
 ## Configure
 
-- **Environment groups**: Variables, Links and Shared links sit under a row of tabs, one per group, and show the group whose tab is picked. Add a group with **New group**, rename or delete one from its tab's ⋯ menu, and drag the tabs to reorder them (or press Alt+←/→ on a tab, or use Move left/right in the menu). Search results list groups in this order, for example `PAM` with DEV, STAGING and PRODUCTION and `Payments` with QA, UAT and LIVE. The address bar and toolbar list search every group and label results with the group's name; typing a group's name narrows them to it (`e backoffice payments live`). With tab groups on, tabs are grouped as "Payments · LIVE". With only one group, none of this shows. Behaviour and Import / Export cover every group.
-- **Variables**: a grid with one row per environment and one column per variable, so it grows downwards as you add environments. The **Default** row applies to any environment that leaves its cell blank, so `DOMAIN` only has to be set once. Drag the ⋮⋮ handle on a row or column to reorder environments or variables, or focus the handle and use the arrow keys.
+- **Environment groups**: Environments, Links and Shared links sit under a row of tabs, one per group, and show the group whose tab is picked. Add a group with **New group**, rename or delete one from its tab's ⋯ menu, and drag the tabs to reorder them (or press Alt+←/→ on a tab, or use Move left/right in the menu). Search results list groups in this order. For example, one group could be `PAM` with DEV, STAGING and PRODUCTION, and another `Payments` with QA, UAT and LIVE. The address bar and toolbar list search every group and label results with the group's name; typing a group's name narrows them to it (`e backoffice payments live`). With tab groups on, tabs are grouped as "Payments · LIVE". With only one group, none of this shows. Behaviour and Import / Export cover every group.
+- **Environments**: a grid with one row per environment and one column per variable, so it grows downwards as you add environments. The **Default** row applies to any environment that leaves its cell blank, so `DOMAIN` only has to be set once. Drag the ⋮⋮ handle on a row or column to reorder environments or variables, or focus the handle and use the arrow keys.
 - **Links**: a name (what you type) and a template such as `backoffice.{{ENVIRONMENT}}.{{DOMAIN}}`. `https://` is added when no scheme is given. Expand a link to preview each environment's URL and to override it for one environment, e.g. production as `backoffice.{{DOMAIN}}`. If a link doesn't exist in an environment, untick **Applicable** on that environment's row and it's left out of the address bar, toolbar list and tab groups for that link. In a shared file this is `"excluded": ["production"]` on the link.
-- **Import / Export**: **Export to file** saves your settings as a JSON file (without access tokens). To load it back, drop the file onto the import box (or paste its JSON there), check it, and click **Import from text**.
+- **Basic auth**: put a user and password before the host, as in `{{USER}}:{{PASS}}@grafana.{{DOMAIN}}`, and Chrome signs in with them when it opens the link. Values filled in there are encoded, so a password with `@`, `:` or `#` still works. Passwords are hidden as `••••` in previews, the toolbar list and address-bar suggestions, and a variable named like `PASS`, `SECRET`, `TOKEN` or `API_KEY` shows as dots in the grid until you edit it. They're stored like the rest of your settings: synced through your Chrome profile and included in exports, so prefer a read-only or low-privilege account.
+- **Import / Export**: **Export to file** saves your settings as a JSON file (without access tokens), marked with its `formatVersion`. Files exported by older versions still import; a file from a newer version asks you to update the extension first. To load it back, drop the file onto the import box (or paste its JSON there), check it, and click **Import from text**.
 
 ## Share links with your team
 

@@ -22,7 +22,7 @@ npm test
 - It holds the behaviour settings (`openIn`, `groupTabs`), the shared `sources`, and `groups`: **environment groups**, each with its own `variableNames`, `globals`, `environments`, `links`, `environmentOrder` and `variableOrder`. There's always at least one. `normalizeConfig` turns a config from before groups (those fields at the top level) into one group called Default.
 - Each source feeds one group (`source.group`; `sourceGroupId()` falls back to the first group). A shared file has the shape of one group.
 - `resolveConfig(config, layers)` lays shared files underneath each group (`resolveGroup`) to produce the **effective** config, which the address bar, popup and previews use. It's never saved. `search()` covers every group; a filter word that starts a group's name picks that group.
-- On the settings page, `settings` is the saved config and `config` / `effective` are the group being edited, so the Variables, Links and Shared links code works on one group.
+- On the settings page, `settings` is the saved config and `config` / `effective` are the group being edited, so the Environments, Links and Shared links code works on one group.
 - Editing a shared environment creates the user's own entry with the same `id`. Shared items are never changed in place.
 - Variable precedence, lowest first: shared default, own default, shared environment value, own environment value.
 - Own links win over shared links with the same name (case-insensitive). With several sources, the first one wins.
@@ -50,6 +50,15 @@ npm test
 - In the popup, selecting a row must not change its size. Rows reserve a transparent border for this.
 - If you change the popup or settings page, re-render the store images (below) and look at them.
 
+## Settings file format
+
+Export writes the user's `config` with a `"formatVersion"` (`SETTINGS_FORMAT` in `src/core.js`), and Import reads any format up to that one. A file from a newer format is refused with a message asking the user to update the extension, so an older version never half-reads it.
+
+- Bump `SETTINGS_FORMAT` for any change an older version couldn't read correctly, such as renaming, moving or re-meaning a field. Adding an optional field that older versions can ignore doesn't need it.
+- When you bump it, add a line for the new format to the list above `SETTINGS_FORMAT`, and make `normalizeConfig` upgrade the older shapes. Synced settings go through the same function, so they upgrade too.
+- Add a test that a file in the previous format still imports.
+- A format bump is a breaking change to exported files, so it's a **major** version (see below).
+
 ## Permissions and the store listing
 
 Adding a permission, a network request or any kind of stored user data changes the Chrome Web Store privacy answers. Update `store/PRIVACY-PRACTICES.md` (permission justifications and data usage) and [`PRIVACY.md`](PRIVACY.md) (with a new "Last updated" date) in the same change, and mention it in the pull request. `store/description.txt` is pasted into the store as plain text, so don't use Markdown in it.
@@ -63,7 +72,7 @@ python3 scripts/build-assets.py
 This renders the icons and every image in `store/` from `store/source/` with headless Google Chrome:
 
 - The settings page and popup screenshots use the real pages, run against a fake `chrome` API with sample data from the script. Add `?shared` to the page URL for a synced shared file (screenshot 5), or `#id` to scroll to a section.
-- The icons come from `store/source/icon.svg`, except the sizes with their own drawing on the pixel grid: `icon-16.svg` and `icon-32.svg` for the toolbar, and `icon-96.svg` for the 128px icon (96px of artwork inside 16px of padding). Change those together.
+- The icons come from `store/source/icon.svg`, except the sizes with their own drawing on the pixel grid: `icon-16.svg` and `icon-32.svg` for the toolbar, and `icon-96.svg` for the 128px icon (96px of artwork inside 16px of padding) and the 256px one, which is the same drawing at twice the size for screens with twice the pixels. Change those together. The store's own icon can only be 128px.
 - The tutorial is forced closed so it doesn't cover the screenshots. (With an empty setup it opens anyway, but the sample data isn't empty.)
 - Headless Chrome won't make a window narrower than about 500px, so small images are rendered larger and cropped by the script.
 - The popup is 400px wide. Frame it at exactly that width or the screenshot gets a blank strip.
