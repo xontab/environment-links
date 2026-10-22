@@ -513,6 +513,7 @@ button:has(> .btn-icon) { display: inline-flex; align-items: center; gap: 6px; }
 .source-heading a { color: var(--accent); }
 .toggle-setting { margin: 0 0 10px; }
 .toggle-setting input { width: 16px; height: 16px; flex: none; }
+#vars-section > .toggle-setting { margin: 14px 0 0; } /* under the grid, for the group being edited */
 
 /* A setting's tickbox on a tutorial slide */
 .slide-toggle {

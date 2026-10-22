@@ -185,6 +185,11 @@
         </div>
       </div>
       <div class="table-wrap"><table id="vars" class="grid"></table></div>
+      <label class="inline toggle-setting">
+        <input id="group-tabs-setting" class="group-tabs-input" type="checkbox">
+        <span>Put this group's links in a tab group per environment
+          <span class="muted">(e.g. all PRODUCTION tabs in a <span class="mg-group g-prd group-chip">PRODUCTION</span> group)</span></span>
+      </label>
     </section>
 
     <section id="links-section">
@@ -246,11 +251,6 @@
           <button id="change-shortcut" type="button">Change shortcut</button>
         </div>
       </div>
-      <label class="inline toggle-setting">
-        <input id="group-tabs" class="group-tabs-input" type="checkbox">
-        <span>Put links in a tab group per environment
-          <span class="muted">(e.g. all PRODUCTION tabs in a <span class="mg-group g-prd group-chip">PRODUCTION</span> group)</span></span>
-      </label>
       <label class="inline">Pressing Enter opens the link in
         <select id="open-in">
           <option value="currentTab">the current tab</option>

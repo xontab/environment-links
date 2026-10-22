@@ -4,7 +4,6 @@
 // New installs start empty; the settings page walks the user through setting up.
 export const DEFAULT_CONFIG = {
   openIn: "currentTab", // currentTab | newForegroundTab | newBackgroundTab
-  groupTabs: false, // put opened links in a tab group per environment
   groups: [],
 };
 
@@ -26,7 +25,10 @@ const VAR_RE = /\{\{\s*([A-Za-z_][A-Za-z0-9_]*)\s*\}\}/g;
  */
 export function normalizeConfig(raw) {
   const cfg = raw && typeof raw === "object" ? raw : {};
-  const rawGroups = Array.isArray(cfg.groups) ? cfg.groups : [{ ...DEFAULT_GROUP, ...cfg }];
+  // Tab groups used to be one setting for everything; a config from then turns it on for every group.
+  const legacyGroupTabs = cfg.groupTabs === true;
+  const rawGroups = (Array.isArray(cfg.groups) ? cfg.groups : [{ ...DEFAULT_GROUP, ...cfg }])
+    .map((g) => (legacyGroupTabs && g && typeof g === "object" && !("groupTabs" in g) ? { ...g, groupTabs: true } : g));
   const groups = [];
   rawGroups.forEach((g, i) => {
     const group = normalizeGroup(g, i);
@@ -36,7 +38,6 @@ export function normalizeConfig(raw) {
   if (!groups.length) groups.push(normalizeGroup(DEFAULT_GROUP));
   return {
     openIn: cfg.openIn || DEFAULT_CONFIG.openIn,
-    groupTabs: cfg.groupTabs === true,
     groups,
     sources: (cfg.sources || []).map(normalizeSource).filter((src) => src.repo),
   };
@@ -93,6 +94,7 @@ export function normalizeGroup(raw, index = 0) {
   return {
     id: String(cfg.id || slug(name) || `group${index + 1}`),
     name,
+    groupTabs: cfg.groupTabs === true, // put this group's links in a Chrome tab group per environment
     variableNames,
     globals,
     environments,
@@ -309,9 +311,9 @@ export function environmentForUrl(config, url) {
   return best ? { env: best.env, group: best.group } : null;
 }
 
-/** A tab group's title: the environment's name, after its group's when there are several ("PAM · DEV"). */
+/** A tab group's title: the environment's name, then its group's when there are several ("DEV · PAM"). */
 export function tabGroupTitle(config, group, env) {
-  return config.groups.length > 1 && group ? `${group.name} · ${env.name}` : env.name;
+  return config.groups.length > 1 && group ? `${env.name} · ${group.name}` : env.name;
 }
 
 /**
@@ -498,33 +500,63 @@ function score(key, term) {
 /**
  * Ordered list of { env, link, group, url, missing } results for omnibox text, from every group.
  *
- * Words can come in any order. Link names come first: the first word that matches a link's name
- * picks the links, and the others narrow them by environment, or by group when one starts a group's
- * name. Environments are the second priority: with no word matching a link ("prod"), every link is
- * listed for the matching environments, and a single word that matches both ("dev") lists the links
- * it names first, then every link in the environments it names.
+ * Words can come in any order. Link names come first: every word found in a link's name counts
+ * towards it, so "api doc" finds "api-docs", and the words left over narrow its environments, or
+ * its group when one starts a group's name. Links that match more of the words, and match them
+ * better, are listed first. Environments are the second priority: with no word in any link's name
+ * ("prod"), every link is listed for the matching environments, and a single word that matches
+ * both ("dev") lists the links it names first, then every link in the environments it names.
  */
 export function search(text, config) {
   const { term, envFilters, path } = parseQuery(text);
-  const words = [term, ...envFilters].filter(Boolean);
-  const linkWord = words.find((w) => config.groups.some((g) => g.links.some((l) => l.key && score(l.key, w) !== null)));
-  const filters = words.filter((w, i) => i !== words.indexOf(linkWord));
-  const results = matchLinks(linkWord ?? "", filters, path, config);
-  if (words.length !== 1 || !linkWord) return results;
+  const words = [...new Set([term, ...envFilters].filter(Boolean))];
+  const named = config.groups
+    .flatMap((group, order) => group.links.filter((l) => l.key).map((link) => {
+      const inName = words.filter((w) => score(link.key, w) !== null);
+      return {
+        link, group, order, inName,
+        rest: words.filter((w) => !inName.includes(w)),
+        s: inName.reduce((total, w) => total + score(link.key, w), 0),
+      };
+    }))
+    .filter((c) => c.inName.length)
+    .sort((a, b) => b.inName.length - a.inName.length || a.s - b.s || a.link.key.localeCompare(b.link.key) || a.order - b.order);
+  if (!named.length) return matchLinks("", words, path, config); // only environments or groups named
+
+  const results = named.flatMap((c) => linkResults(c.link, c.group, c.rest, path, config));
+  if (words.length !== 1) return results;
 
   // One word that names links: environments it names come second, without repeating a result.
   const seen = new Set(results.map((r) => `${r.group.id}\u0000${r.link.key}\u0000${r.env.id}`));
-  return [...results, ...matchLinks("", [linkWord], path, config)
+  return [...results, ...matchLinks("", words, path, config)
     .filter((r) => !seen.has(`${r.group.id}\u0000${r.link.key}\u0000${r.env.id}`))];
+}
+
+const groupNames = (g) => [g.name.toLowerCase(), g.id.toLowerCase()];
+
+/** Split filter words into those naming a group (with several groups) and those naming environments. */
+function splitFilters(filters, config) {
+  const groupWords = config.groups.length > 1
+    ? filters.filter((f) => config.groups.some((g) => startsAny(groupNames(g), [f])))
+    : [];
+  return { groupWords, envWords: filters.filter((f) => !groupWords.includes(f)) };
+}
+
+/** One link's results in the environments (and group) the filter words pick. */
+function linkResults(link, group, filters, path, config) {
+  const { groupWords, envWords } = splitFilters(filters, config);
+  if (groupWords.length && !startsAny(groupNames(group), groupWords)) return [];
+  // Every leftover word has to name one of its environments: "doc" in "doc api" isn't about "api".
+  if (!envWords.every((w) => group.environments.some((e) => envStartsWith(e, w)))) return [];
+  const envMatches = envFilter(envWords, group.environments);
+  return expandLink(link, group)
+    .filter((r) => envMatches(r.env))
+    .map((r) => ({ ...r, url: appendPath(r.url, path) }));
 }
 
 /** Links whose name matches term (all of them for ""), in the environments and groups filters pick. */
 function matchLinks(term, filters, path, config) {
-  const groupNames = (g) => [g.name.toLowerCase(), g.id.toLowerCase()];
-  const groupFilters = config.groups.length > 1
-    ? filters.filter((f) => config.groups.some((g) => startsAny(groupNames(g), [f])))
-    : [];
-  const envFilters = filters.filter((f) => !groupFilters.includes(f));
+  const { groupWords: groupFilters, envWords: envFilters } = splitFilters(filters, config);
   const groups = groupFilters.length ? config.groups.filter((g) => startsAny(groupNames(g), groupFilters)) : config.groups;
 
   const links = groups

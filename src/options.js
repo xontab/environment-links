@@ -1584,9 +1584,10 @@ $("#add-link").addEventListener("click", () => {
 
 $("#open-in").addEventListener("change", (e) => { settings.openIn = e.target.value; scheduleSave(); });
 
-// Grouping tabs needs the optional "tabGroups" permission, asked for when it's turned on (Chrome
-// only shows the prompt during a click, so the request comes first) and given back when it's off.
-// There are two tickboxes for this setting, under Behaviour and in the tutorial; they stay in step.
+// Grouping tabs is a setting of each environment group. It needs the optional "tabGroups"
+// permission, asked for when it's turned on (Chrome only shows the prompt during a click, so the
+// request comes first) and given back once no group uses it. There are two tickboxes for the group
+// being edited, under Environments and in the tutorial; they stay in step.
 const groupTabBoxes = () => document.querySelectorAll(".group-tabs-input");
 const tickGroupTabs = (on) => groupTabBoxes().forEach((box) => (box.checked = on));
 groupTabBoxes().forEach((box) => box.addEventListener("change", async (e) => {
@@ -1597,12 +1598,14 @@ groupTabBoxes().forEach((box) => box.addEventListener("change", async (e) => {
       tickGroupTabs(false);
       return setStatus("Tab groups need Chrome's permission to manage tab groups.", "err");
     }
-    settings.groupTabs = true;
+    config.groupTabs = true;
     await saveNow(); // save first, so "Saved" doesn't replace the message below
-    setStatus("New links will open in a tab group per environment", "ok");
+    setStatus(settings.groups.length > 1
+      ? `${config.name}'s links will open in a tab group per environment`
+      : "New links will open in a tab group per environment", "ok");
   } else {
-    settings.groupTabs = false;
-    chrome.permissions.remove(GROUP_PERMISSION).catch(() => {});
+    config.groupTabs = false;
+    if (!settings.groups.some((g) => g.groupTabs)) chrome.permissions.remove(GROUP_PERMISSION).catch(() => {});
     await saveNow();
   }
 }));
@@ -1610,7 +1613,7 @@ groupTabBoxes().forEach((box) => box.addEventListener("change", async (e) => {
 /** Ticked only when the setting is on and Chrome still has the permission. */
 async function showGroupTabs() {
   const granted = await chrome.permissions.contains(GROUP_PERMISSION).catch(() => false);
-  tickGroupTabs(settings.groupTabs && granted);
+  tickGroupTabs(config.groupTabs && granted);
 }
 
 $("#export").addEventListener("click", () => {

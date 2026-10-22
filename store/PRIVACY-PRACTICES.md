@@ -26,9 +26,9 @@ This is an optional host permission. Chrome asks the user for it the first time 
 
 ### tabGroups (optional)
 
-This is an optional permission. Chrome asks the user for it only when they turn on "Put links in a tab group per environment" in the settings, and it's given back when they turn the option off.
+This is an optional permission. Chrome asks the user for it only when they turn on "Put this group's links in a tab group per environment" in the settings, and it's given back when they turn the option off for every group.
 
-> When the user turns on the optional "Put links in a tab group per environment" setting, the extension puts each link it opens into a tab group named after that environment (for example PRODUCTION) in the current window, creating and colouring the group the first time. It only reads the names of the tab groups in that window, to find the right one. It doesn't read the pages, titles or addresses of other tabs, and nothing is sent anywhere.
+> When the user turns on the optional "Put this group's links in a tab group per environment" setting, the extension puts each link it opens into a tab group named after that environment (for example PRODUCTION) in the current window, creating and colouring the group the first time. It only reads the names of the tab groups in that window, to find the right one. It doesn't read the pages, titles or addresses of other tabs, and nothing is sent anywhere.
 
 ## Are you using remote code?
 

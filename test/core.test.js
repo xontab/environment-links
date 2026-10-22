@@ -191,8 +191,12 @@ test("finds the environment of a URL, including one with a path added", () => {
   assert.equal(environmentForUrl(config, "https://backoffice.example.com/players/1").env.id, "production");
   assert.equal(environmentForUrl(config, "https://backoffice.example.com.evil.io"), null);
   assert.equal(environmentForUrl(config, "https://elsewhere.io"), null);
-  assert.equal(normalizeConfig({}).groupTabs, false);
-  assert.equal(normalizeConfig({ groupTabs: true }).groupTabs, true);
+  assert.equal(normalizeConfig({}).groups[0].groupTabs, false);
+  // The setting is per group now; the old global one turns it on for every group that doesn't say.
+  assert.equal(normalizeConfig({ groupTabs: true }).groups[0].groupTabs, true);
+  const both = normalizeConfig({ groupTabs: true, groups: [{ name: "A" }, { name: "B", groupTabs: false }] });
+  assert.deepEqual(both.groups.map((g) => g.groupTabs), [true, false]);
+  assert.equal("groupTabs" in both, false);
 });
 
 // ---- Environment groups -------------------------------------------------------------------
@@ -238,7 +242,7 @@ test("typing a group's name narrows to that group, alongside environment filters
 test("the group shows in suggestions and tab group titles when there are several", () => {
   const [result] = search("wallet qa", GROUPS);
   assert.match(describe(result, false, true), /^<dim>Payments<\/dim> <match>QA<\/match>/);
-  assert.equal(tabGroupTitle(GROUPS, result.group, result.env), "Payments · QA");
+  assert.equal(tabGroupTitle(GROUPS, result.group, result.env), "QA · Payments");
   assert.equal(tabGroupTitle(config, config.groups[0], config.groups[0].environments[0]), "DEV");
   assert.equal(environmentForUrl(GROUPS, "https://wallet.live.pay.com/x").group.id, "payments");
 });
@@ -379,4 +383,22 @@ test("a link name and an environment narrow to that link there, however the envi
   assert.deepEqual(found("backoffice prod", ["Dev", "Pre-Prod", "Prod"]), ["backoffice@Prod"]);
   // Without one, the start of any word: "prod" finds PRODUCTION but not PREPROD.
   assert.deepEqual(found("backoffice prod", ["DEV", "PREPROD", "PRODUCTION"]), ["backoffice@PRODUCTION"]);
+});
+
+test("several words can match one link name, and the rest narrow it", () => {
+  const cfg = normalizeConfig({ ...EXAMPLE, links: [
+    { key: "api", template: "api.{{DOMAIN}}" },
+    { key: "api-docs", template: "docs.{{DOMAIN}}" },
+    { key: "Back Office", template: "bo.{{DOMAIN}}" },
+  ] });
+  const found = (q) => search(q, cfg).map((r) => `${r.link.key}@${r.env.name}`);
+  assert.deepEqual(found("api doc"), ["api-docs@DEV", "api-docs@STAGING", "api-docs@PREPROD", "api-docs@PRODUCTION"]);
+  assert.deepEqual(found("doc api prod"), ["api-docs@PRODUCTION"]);
+  assert.deepEqual(found("back off stag"), ["Back Office@STAGING"]);
+  assert.deepEqual(found("office back"), found("back office"));
+  // "api" alone: the exact name first, then the one it starts.
+  assert.deepEqual([...new Set(found("api").map((r) => r.split("@")[0]))], ["api", "api-docs"]);
+  // The link matching more of the words comes first.
+  assert.equal(found("api docs")[0], "api-docs@DEV");
+  assert.deepEqual(found("api nope"), []); // "nope" is in no name and names no environment
 });

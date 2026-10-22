@@ -19,7 +19,7 @@ export async function openLink(url, target, env, config, group) {
   } else {
     tab = await chrome.tabs.create({ url, active: target === "newForegroundTab" });
   }
-  if (config.groupTabs && env && tab) {
+  if (group?.groupTabs && env && tab) { // a setting of each environment group
     try {
       await groupTab(tab, env, config, group);
     } catch (err) {
