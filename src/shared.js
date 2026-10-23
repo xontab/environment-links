@@ -3,7 +3,8 @@
 //
 // Storage layout:
 //   sync  "config"  the user's own settings, including config.sources (no secrets)
-//   local "shared"  { [sourceId]: { data, etag, syncedAt, error } }  the last fetched copy of each file
+//   local "shared"  { [sourceId]: { data, etag, syncedAt, okAt, error } }  the last fetched copy of each file
+//                   (syncedAt: the last attempt; okAt: the last one that worked)
 //   local "tokens"  { [sourceId]: token }  GitHub tokens; kept on this device, never synced or exported
 
 import { DEFAULT_CONFIG, normalizeConfig, parseSharedFile, resolveConfig } from "./core.js";
@@ -82,7 +83,10 @@ export async function syncSource(source) {
   const [cache, tokens] = await Promise.all([loadCache(), loadTokens()]);
   const previous = cache[source.id] || {};
   const token = tokens[source.id];
-  const entry = { ...previous, syncedAt: Date.now(), error: null };
+  // okAt is when it last worked. Copies cached before it existed only have syncedAt, which was a
+  // good sync if no error was recorded with it.
+  const okAt = previous.okAt ?? (previous.data && !previous.error ? previous.syncedAt : undefined);
+  const entry = { ...previous, syncedAt: Date.now(), ...(okAt ? { okAt } : {}), error: null };
 
   try {
     if (!(await chrome.permissions.contains(GITHUB_PERMISSION))) {
@@ -98,6 +102,7 @@ export async function syncSource(source) {
       entry.data = parseSharedFile(await response.text());
       entry.etag = response.headers.get("etag");
     }
+    entry.okAt = entry.syncedAt; // a 304 means the copy we have is still the latest, so that counts too
   } catch (err) {
     entry.error = err.message || String(err);
   }

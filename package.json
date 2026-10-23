@@ -1,7 +1,7 @@
 {
   "name": "environment-links-extension",
   "private": true,
-  "version": "1.7.1",
+  "version": "1.8.0",
   "description": "Chrome extension that opens the same link in every environment from the address bar.",
   "license": "MIT",
   "repository": {

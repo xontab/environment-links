@@ -111,6 +111,9 @@ input:focus, select:focus, textarea:focus, button:focus-visible { outline: 2px s
 textarea { width: 100%; padding: 8px; resize: vertical; }
 button { padding: 5px 12px; cursor: pointer; white-space: nowrap; }
 button:hover { border-color: var(--muted); }
+/* A button that can't be used yet, such as Save token with nothing typed: dimmed, and no hover. */
+button:disabled { opacity: .45; cursor: not-allowed; }
+button:disabled:hover { border-color: var(--border); }
 button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
 button.danger { color: var(--danger); }
 button.icon { padding: 2px 8px; color: var(--muted); }
@@ -441,8 +444,8 @@ kbd.unset { color: var(--muted); font-style: italic; }
 .tag.overridden:hover, .tag.overridden:focus-visible { color: var(--accent); border-color: var(--accent); }
 /* A brief highlight on the link that "Overridden" jumped to. */
 @keyframes link-flash { from { box-shadow: 0 0 0 3px var(--accent); } to { box-shadow: 0 0 0 3px transparent; } }
-.link.flash { animation: link-flash 1.4s ease-out; }
-@media (prefers-reduced-motion: reduce) { .link.flash, #vars input.flash { animation-duration: .01s; } }
+.link.flash, .source.flash { animation: link-flash 1.4s ease-out; }
+@media (prefers-reduced-motion: reduce) { .link.flash, .source.flash, #vars input.flash { animation-duration: .01s; } }
 
 /* Import box: drop a .json file onto it to open the file here */
 .drop-zone { position: relative; }
@@ -471,6 +474,7 @@ kbd.unset { color: var(--muted); font-style: italic; }
 .source-head .actions button { display: inline-flex; align-items: center; gap: 6px; }
 .btn-icon { display: grid; }
 .source-head button:disabled .btn-icon svg { animation: spin 1s linear infinite; }
+.source-head button:disabled { opacity: 1; cursor: progress; } /* Sync now while it syncs: the spinner says why */
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .source-head button:disabled .btn-icon svg { animation: none; } }
 
@@ -499,6 +503,19 @@ button:has(> .btn-icon) { display: inline-flex; align-items: center; gap: 6px; }
 .info:has(.keycaps) { align-items: center; }
 .info:has(.keycaps) .info-icon { margin-top: 0; }
 .info .keycaps { vertical-align: baseline; margin-right: 2px; } /* the labels share the text's baseline */
+/* The header's line of text: the same keycaps, a little smaller, on the text's baseline. */
+.top .keycaps { vertical-align: baseline; margin: 0 2px; }
+.top .keycaps kbd { padding: 2px 6px; min-width: 22px; }
+/* An example of what to type, drawn as a little search box like the toolbar list's. */
+.search-example {
+  display: inline-flex; align-items: baseline; gap: 5px; padding: 1px 9px 1px 7px; border: 1px solid var(--border);
+  border-radius: 100px; background: var(--surface); color: var(--text); font: 12px ui-monospace, SFMono-Regular, Menlo, monospace;
+  white-space: nowrap;
+}
+.search-example::before {
+  content: ""; flex: none; align-self: center; width: 11px; height: 11px; background: var(--muted);
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.6' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-4-4'/%3E%3C/svg%3E") center / contain no-repeat;
+}
 .keycaps kbd.unset { color: var(--muted); font-style: italic; box-shadow: none; border-style: dashed; }
 .shortcut-note { font-size: 13px; }
 .shortcut > button { justify-self: start; }
@@ -566,6 +583,12 @@ h2 .help-link { margin-left: -2px; } /* right after the heading's text */
   background: var(--code-bg); color: var(--muted);
 }
 .group-tab.selected .count { background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); }
+/* Before the count when one of the group's Shared links files didn't sync: a red "!", the same as
+   the badge on the toolbar icon (so the same red in both themes). */
+.group-tab .sync-error {
+  display: inline-grid; place-items: center; width: 16px; height: 16px; margin-right: -2px; border-radius: 50%;
+  background: #d93025; color: #fff; font: 800 11px/1 system-ui, sans-serif; cursor: pointer;
+}
 /* The ⋯ takes the link count's place while the tab is hovered, reached with the keyboard or has its
    menu open, so it needs no room of its own: centred over the count, which is hidden meanwhile. */
 .group-tab .more {

@@ -402,3 +402,26 @@ test("several words can match one link name, and the rest narrow it", () => {
   assert.equal(found("api docs")[0], "api-docs@DEV");
   assert.deepEqual(found("api nope"), []); // "nope" is in no name and names no environment
 });
+
+// ---- Sync problems ---------------------------------------------------------------------------
+
+import { syncProblems, describeSyncProblems, timeAgo } from "../src/core.js";
+
+test("failed syncs are listed with the group each source feeds", () => {
+  const [pay, any] = GROUPS.sources;
+  const cache = { [pay.id]: { data: null, error: "GitHub says 404" }, [any.id]: { data: {}, error: null } };
+  const problems = syncProblems(GROUPS, cache);
+  assert.deepEqual(problems.map((p) => [p.source.repo, p.group.id, p.error]), [["acme/pay", "payments", "GitHub says 404"]]);
+  assert.equal(describeSyncProblems(problems), "Shared links from acme/pay didn't sync: GitHub says 404");
+  assert.deepEqual(syncProblems(GROUPS, {}), []); // never synced isn't an error
+});
+
+test("a failed sync says when the file last synced", () => {
+  const now = Date.UTC(2026, 9, 23, 12);
+  const [pay] = GROUPS.sources;
+  const problems = syncProblems(GROUPS, { [pay.id]: { data: {}, error: "Offline", okAt: now - 3 * 3600e3 } });
+  assert.equal(describeSyncProblems(problems, now), "Shared links from acme/pay didn't sync: Offline It last synced 3 h ago.");
+  assert.equal(timeAgo(now - 20e3, now), "just now");
+  assert.equal(timeAgo(now - 5 * 60e3, now), "5 min ago");
+  assert.match(timeAgo(now - 3 * 86400e3, now), /^on /);
+});

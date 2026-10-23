@@ -1,6 +1,6 @@
-import { DEFAULT_CONFIG, search, describe, environmentForUrl } from "./core.js";
+import { DEFAULT_CONFIG, search, describe, environmentForUrl, syncProblems, describeSyncProblems } from "./core.js";
 import { openLink } from "./open.js";
-import { CONFIG_KEY, loadEffectiveConfig, syncAll } from "./shared.js";
+import { CONFIG_KEY, loadEffectiveConfig, loadLocalConfig, loadCache, syncAll } from "./shared.js";
 
 const MAX_SUGGESTIONS = 9;
 const SYNC_ALARM = "sync-shared-links";
@@ -11,6 +11,21 @@ const loadConfig = loadEffectiveConfig;
 function scheduleSync() {
   chrome.alarms.create(SYNC_ALARM, { periodInMinutes: SYNC_EVERY_MINUTES });
 }
+
+// A red "!" on the toolbar icon while any Shared links file fails to sync; its tooltip says which.
+async function showSyncProblems() {
+  const [config, cache] = await Promise.all([loadLocalConfig(), loadCache()]);
+  const problems = syncProblems(config, cache);
+  await Promise.all([
+    chrome.action.setBadgeText({ text: problems.length ? "!" : "" }),
+    chrome.action.setBadgeBackgroundColor({ color: "#d93025" }),
+    chrome.action.setTitle({ title: problems.length ? `Environment Links\n${describeSyncProblems(problems)}` : "Environment Links" }),
+  ]);
+}
+chrome.storage.onChanged.addListener((changes, area) => {
+  if ((area === "local" && changes.shared) || (area === "sync" && changes[CONFIG_KEY])) showSyncProblems();
+});
+showSyncProblems(); // each time the service worker starts
 
 chrome.runtime.onInstalled.addListener(async ({ reason }) => {
   scheduleSync();

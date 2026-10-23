@@ -1,5 +1,5 @@
-import { DEFAULT_CONFIG, normalizeConfig, search, displayUrl, hasCredentials } from "./core.js";
-import { loadEffectiveConfig } from "./shared.js";
+import { DEFAULT_CONFIG, normalizeConfig, search, displayUrl, hasCredentials, syncProblems, describeSyncProblems } from "./core.js";
+import { loadEffectiveConfig, loadCache } from "./shared.js";
 import { openLink } from "./open.js";
 
 const list = document.querySelector("#list");
@@ -149,6 +149,7 @@ function render() {
 
   rows = [];
   list.replaceChildren();
+  if (problems.length) list.append(syncBanner());
   if (!byLink.size) {
     list.append(emptyState(filter.value.trim()));
   }
@@ -221,6 +222,31 @@ filter.addEventListener("keydown", (e) => {
   }
 });
 
+// ---- Shared links that didn't sync ----
+
+let problems = [];
+
+/**
+ * A red "!" banner at the top of the list, like the badge on the toolbar icon. Clicking it opens
+ * the settings at the file that didn't sync. It's outside the arrow-key rows, so Enter still
+ * opens the first link.
+ */
+function syncBanner() {
+  const [first] = problems;
+  const text = problems.length === 1
+    ? `Shared links from ${first.source.repo} didn't sync.`
+    : `${problems.length} Shared links files didn't sync.`;
+  const banner = el("li", { className: "sync-problem", title: describeSyncProblems(problems) },
+    el("span", { className: "bang", ariaHidden: "true" }, "!"),
+    el("span", { className: "text" }, text, " ", el("a", { href: "#", className: "fix" }, "Show")));
+  banner.addEventListener("click", (e) => {
+    e.preventDefault();
+    chrome.tabs.create({ url: chrome.runtime.getURL("src/options.html#sync-problem") });
+    window.close();
+  });
+  return banner;
+}
+
 // "Open this list with ⌘⇧E", when a shortcut is set, so people discover it.
 let shortcutHint = "";
 
@@ -230,6 +256,8 @@ let shortcutHint = "";
     const shortcut = commands.find((c) => c.name === "_execute_action")?.shortcut;
     if (shortcut) shortcutHint = `Open this list with ${shortcut}`;
   } catch {}
-  config = await loadEffectiveConfig();
+  const [effective, cache] = await Promise.all([loadEffectiveConfig(), loadCache()]);
+  config = effective;
+  problems = syncProblems(config, cache);
   render();
 })();

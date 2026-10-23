@@ -16,7 +16,7 @@ body.popup { width: 400px; max-height: 580px; padding: 10px; overflow-y: auto; }
 }
 #list li.selected-row + li { border-top-color: transparent; }
 /* A light tint on the link under the pointer. Background only, so the row keeps its size. */
-#list li:not(.group-heading, .settings-row, .empty-state, .selected-row):hover {
+#list li:not(.group-heading, .settings-row, .empty-state, .selected-row, .sync-problem):hover {
   background: color-mix(in srgb, var(--accent) 5%, transparent); border-radius: 2px 10px 10px 2px;
 }
 #list li.selected-row .key { color: var(--accent); }
@@ -63,6 +63,19 @@ body.popup { width: 400px; max-height: 580px; padding: 10px; overflow-y: auto; }
   letter-spacing: .06em; text-transform: uppercase; color: var(--muted);
 }
 #list li.group-heading + li { border-top-color: transparent; }
+/* A Shared links file that didn't sync: a red "!" like the toolbar icon's badge, then a short note. */
+#list li.sync-problem {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 4px; padding: 7px 12px; cursor: pointer; font-size: 12px;
+  border: 1px solid color-mix(in srgb, var(--danger) 35%, transparent); border-radius: 10px;
+  background: color-mix(in srgb, var(--danger) 8%, transparent);
+}
+#list li.sync-problem + li { border-top-color: transparent; }
+li.sync-problem .bang {
+  flex: none; display: inline-grid; place-items: center; width: 16px; height: 16px; border-radius: 50%;
+  background: #d93025; color: #fff; font: 800 11px/1 system-ui, sans-serif;
+}
+li.sync-problem .text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+li.sync-problem .fix { color: var(--accent); font-weight: 600; }
 /* Between groups: a gap and a stronger line than the one between links. */
 #list li.group-heading:not(:first-child) {
   margin-top: 8px; padding-top: 14px; border-top: 2px solid var(--border);

@@ -136,6 +136,37 @@ export function normalizeSource(src) {
   return { id: String(src?.id || slug(`${repo}-${branch}-${path}`)), repo, branch, path, ...(group ? { group } : {}) };
 }
 
+/**
+ * Shared sources whose last sync failed, with the group each feeds: [{ source, group, error }].
+ * cache is the "shared" store (see shared.js). A source that hasn't synced yet isn't a problem.
+ */
+export function syncProblems(config, cache = {}) {
+  return config.sources
+    .filter((source) => cache[source.id]?.error)
+    .map((source) => ({
+      source,
+      group: config.groups.find((g) => g.id === sourceGroupId(config, source)),
+      error: cache[source.id].error,
+      okAt: cache[source.id].okAt, // when it last synced, if it ever has
+    }));
+}
+
+/** "just now", "5 min ago", "3 h ago", or "on 21/10/2026" for anything older than a day. */
+export function timeAgo(ms, now = Date.now()) {
+  const minutes = Math.round((now - ms) / 60000);
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes} min ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `${hours} h ago`;
+  return `on ${new Date(ms).toLocaleDateString()}`;
+}
+
+/** One line per failed source, e.g. for a tooltip, saying when it last synced if it ever did. */
+export function describeSyncProblems(problems, now = Date.now()) {
+  return problems.map(({ source, error, okAt }) =>
+    `Shared links from ${source.repo} didn't sync: ${error}${okAt ? ` It last synced ${timeAgo(okAt, now)}.` : ""}`).join("\n");
+}
+
 /** The group a source feeds: the one it names, or the first group if that one's gone. */
 export function sourceGroupId(config, source) {
   return config.groups.some((g) => g.id === source.group) ? source.group : config.groups[0]?.id;

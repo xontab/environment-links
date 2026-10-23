@@ -1,6 +1,7 @@
 import {
   DEFAULT_CONFIG, DEFAULT_SHARED_PATH, normalizeConfig, normalizeSource, expandLink, displayUrl, slug,
   resolveConfig, parseGitHubLocation, buildSharedFile, isEmptyConfig, normalizeGroup, sourceGroupId, isExcluded, variablesUsed, toVariableName, renameInLink, exportSettings, importSettings, hasCredentials,
+  syncProblems, describeSyncProblems, timeAgo,
 } from "./core.js";
 import { GROUP_PERMISSION } from "./open.js";
 import {
@@ -159,7 +160,12 @@ function renderGroups() {
       el("button", {
         type: "button", role: "tab", dataset: { group: group.id }, "aria-controls": "group-panel",
         "aria-selected": String(selected), tabIndex: selected ? 0 : -1,
-        onclick: () => { switchGroup(group.id); focusGroupTab(group.id); }, // the tabs were rebuilt
+        onclick: (e) => {
+          const toProblem = e.target.closest(".sync-error"); // the "!" goes on to the file that didn't sync
+          switchGroup(group.id);
+          focusGroupTab(group.id); // the tabs were rebuilt
+          if (toProblem) showSyncProblem(group);
+        },
         ondblclick: () => startRename(group),
         onkeydown: (e) => {
           const step = { ArrowRight: 1, ArrowLeft: -1 }[e.key];
@@ -171,17 +177,48 @@ function renderGroups() {
           switchGroup(next.id);
           focusGroupTab(next.id);
         },
-        title: several ? "Drag, or press Alt+←/→, to reorder" : "",
-      }, el("span", { class: "name" }, group.name), el("span", { class: "count", title: plural(count, "link") }, String(count))),
+        // Why a sync failed shows wherever the tab is pointed at: the warning gives way to ⋯ on hover.
+        title: [syncProblemText(group), several ? "Drag, or press Alt+←/→, to reorder" : ""].filter(Boolean).join("\n\n"),
+      }, el("span", { class: "name" }, group.name), syncWarning(group),
+      el("span", { class: "count", title: plural(count, "link") }, String(count))),
       moreButton(group, several)
     );
     return wrap;
   }));
 }
 
+const groupSyncProblems = (group) => syncProblems(settings, cache).filter((p) => p.group?.id === group.id);
+const syncProblemText = (group) => describeSyncProblems(groupSyncProblems(group));
+
+/**
+ * A warning between a tab's name and its link count when one of the group's Shared links files
+ * didn't sync. It stays in view on hover, when ⋯ takes the count's place.
+ */
+function syncWarning(group) {
+  const problems = groupSyncProblems(group);
+  if (!problems.length) return null;
+  // A red "!", like the badge on the toolbar icon.
+  return el("span", { class: "sync-error", title: describeSyncProblems(problems), role: "img",
+    "aria-label": `${plural(problems.length, "Shared links file")} didn't sync` }, "!");
+}
+
+/** Scroll to the group's first Shared links file that didn't sync, and briefly highlight it. */
+function showSyncProblem(group) {
+  const [problem] = groupSyncProblems(group);
+  const box = problem && $(`#sources .source[data-source="${CSS.escape(problem.source.id)}"]`);
+  if (!box) return;
+  const tabs = $(".group-bar").offsetHeight; // the group tabs stick below the header
+  window.scrollTo({ top: box.getBoundingClientRect().top + window.scrollY - stickyHeight() - tabs - 16 });
+  box.classList.remove("flash");
+  void box.offsetWidth; // restart the animation if it's clicked twice
+  box.classList.add("flash");
+  box.addEventListener("animationend", () => box.classList.remove("flash"), { once: true });
+}
+
 function moreButton(group, several) {
   const button = el("button", {
-    type: "button", class: "more", title: `Options for ${group.name}`, "aria-label": `Options for ${group.name}`,
+    type: "button", class: "more", title: [`Options for ${group.name}`, syncProblemText(group)].filter(Boolean).join("\n\n"),
+    "aria-label": `Options for ${group.name}`,
     "aria-haspopup": "menu", "aria-expanded": "false",
     onclick: (e) => {
       e.stopPropagation();
@@ -1095,15 +1132,6 @@ function missingButton(name, env, shared) {
 
 // ---- Shared files from GitHub --------------------------------------------
 
-function timeAgo(ms) {
-  const minutes = Math.round((Date.now() - ms) / 60000);
-  if (minutes < 1) return "just now";
-  if (minutes < 60) return `${minutes} min ago`;
-  const hours = Math.round(minutes / 60);
-  if (hours < 24) return `${hours} h ago`;
-  return new Date(ms).toLocaleDateString();
-}
-
 const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
 function fileUrl(source) {
@@ -1120,7 +1148,10 @@ function sourceStatus(source) {
   if (entry.error) {
     return el("span", {},
       el("span", { class: "warn" }, entry.error),
-      entry.data ? el("span", { class: "muted" }, ` Still using the last copy (${summary}).`) : null
+      entry.data
+        ? el("span", { class: "muted" },
+          ` Still using the last copy${entry.okAt ? `, from ${timeAgo(entry.okAt)}` : ""} (${summary}).`)
+        : null
     );
   }
   return el("span", { class: "muted" }, `Synced ${timeAgo(entry.syncedAt)} · ${summary}`);
@@ -1131,15 +1162,17 @@ function requestGitHubAccess() {
   return chrome.permissions.request(GITHUB_PERMISSION).catch(() => false);
 }
 
-async function runSync(source) {
+/** Sync one file now. done, if given, is what happened first (e.g. "Token saved"), said before the result. */
+async function runSync(source, done = "") {
   syncing.add(source.id);
   renderSources();
   const entry = await syncSource(source);
   syncing.delete(source.id);
   cache = await loadCache();
   render();
-  if (entry.error) setStatus(`Sync failed: ${source.repo}`, "err");
-  else setStatus(`Synced ${source.repo}`, "ok");
+  const before = done ? `${done}. ` : "";
+  if (entry.error) setStatus(`${before}Sync failed: ${source.repo}`, "err");
+  else setStatus(`${before}Synced ${source.repo}`, "ok");
 }
 
 const SYNC_ICON = `<path d="M21 12a9 9 0 0 1-15.5 6.2L3 16"/><path d="M3 21v-5h5"/>
@@ -1186,8 +1219,7 @@ function tokenRow(source, hasToken) {
     if (!value) return;
     await setToken(source.id, value);
     tokens = await loadTokens();
-    setStatus(hasToken ? "Token replaced on this device" : "Token saved on this device", "ok");
-    renderSources();
+    runSync(source, hasToken ? "Token replaced on this device" : "Token saved on this device"); // try it straight away
   };
   const save = el("button", { type: "button", disabled: true, onclick: saveToken },
     buttonIcon(KEY_ICON), hasToken ? "Replace token" : "Save token");
@@ -1201,8 +1233,7 @@ function tokenRow(source, hasToken) {
           onclick: async () => {
             await setToken(source.id, "");
             tokens = await loadTokens();
-            setStatus("Token forgotten", "ok");
-            renderSources();
+            runSync(source, "Token forgotten"); // a public file still syncs; a private one now says why not
           },
         }, buttonIcon(X_ICON), "Forget token")
       : null
@@ -1221,7 +1252,7 @@ function renderSources() {
   sources.forEach((source) => {
     const hasToken = Boolean(tokens[source.id]);
     root.append(
-      el("div", { class: "source" },
+      el("div", { class: "source", dataset: { source: source.id } },
         el("div", { class: "source-head" },
           el("div", {},
             el("a", { href: fileUrl(source), target: "_blank", rel: "noreferrer", class: "repo" }, source.repo),
@@ -1709,7 +1740,10 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
   if (area === "local" && (changes.shared || changes.tokens)) {
     if (changes.shared) cache = changes.shared.newValue || {};
     if (changes.tokens) tokens = changes.tokens.newValue || {};
-    if (busy) { recompute(); renderPreviews(); refreshPlaceholders(); } else render();
+    if (busy) {
+      recompute(); renderPreviews(); refreshPlaceholders();
+      if (!renamingGroup) renderGroups(); // a sync problem shows in the tabs (a name being typed there stays)
+    } else render();
     return;
   }
   if (area !== "sync" || !changes[CONFIG_KEY]) return;
@@ -1747,5 +1781,9 @@ for (const [selector, icon] of BUTTON_ICONS) {
     await chrome.storage.sync.set({ [CONFIG_KEY]: settings }); // first run, or a config from before groups
   }
   [cache, tokens] = await Promise.all([loadCache(), loadTokens()]);
+  // Opened from the toolbar list's "didn't sync" banner: go to the group and file in question.
+  const problem = location.hash === "#sync-problem" && syncProblems(settings, cache)[0];
+  if (problem?.group) currentGroupId = problem.group.id;
   render();
+  if (problem?.group) showSyncProblem(problem.group);
 })();

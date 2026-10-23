@@ -66,6 +66,23 @@ test("a failed sync reports why and keeps the last good copy", async () => {
   assert.match((await syncSource(source)).error, /rate limit.*access token/);
 });
 
+test("remembers when a file last synced, through failures and unchanged replies", async () => {
+  const good = await syncSource(source);
+  assert.equal(good.okAt, good.syncedAt);
+  reply = () => new Response("{}", { status: 500, statusText: "Server Error" });
+  const failed = await syncSource(source);
+  assert.equal(failed.okAt, good.okAt); // the failure doesn't move it
+  assert.ok(failed.syncedAt >= good.syncedAt);
+  reply = () => new Response(null, { status: 304 });
+  const unchanged = await syncSource(source);
+  assert.equal(unchanged.okAt, unchanged.syncedAt); // still the latest copy, so it counts
+
+  // A copy cached before okAt existed: its syncedAt was a good sync if it had no error.
+  stores.local.shared = { acme: { data: good.data, etag: '"v1"', syncedAt: 1000, error: null } };
+  reply = () => new Response("{}", { status: 500, statusText: "Server Error" });
+  assert.equal((await syncSource(source)).okAt, 1000);
+});
+
 test("without GitHub access it doesn't fetch", async () => {
   granted = false;
   const entry = await syncSource(source);
