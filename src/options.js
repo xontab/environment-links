@@ -1685,13 +1685,33 @@ async function importJson(text, from) {
     render();
     await saveNow(); // save first, so "Saved" doesn't replace the message below
     await forgetRemovedSources(settings);
+    $("#json").value = ""; // done with it; the button goes back to choosing a file
+    labelImportButton();
     setStatus("Imported", "ok");
   } catch (err) {
     setStatus(`Import failed: ${err.message}`, "err");
   }
 }
 
-$("#import").addEventListener("click", () => importJson($("#json").value, "this JSON"));
+// With nothing in the box, the button chooses a file instead, which opens in the box to check first.
+$("#import").addEventListener("click", () => {
+  if (!$("#json").value.trim()) return $("#import-file").click();
+  importJson($("#json").value, "this JSON");
+});
+$("#import-file").addEventListener("change", (e) => {
+  const [file] = e.target.files;
+  e.target.value = ""; // so choosing the same file again still counts as a change
+  if (file) openImportFile(file);
+});
+$("#json").addEventListener("input", labelImportButton);
+
+/** "Choose a file…" while the box is empty, "Import from text" once there's something in it. */
+function labelImportButton() {
+  const button = $("#import");
+  const empty = !$("#json").value.trim();
+  button.lastChild.textContent = empty ? "Choose a file…" : "Import from text";
+  button.title = empty ? "Choose an exported settings file. It opens in the box above, to check before importing." : "";
+}
 
 // Dropping a file onto the import box opens it there, to check before importing.
 const MAX_IMPORT_BYTES = 1024 * 1024;
@@ -1718,7 +1738,11 @@ dropZone.addEventListener("drop", async (e) => {
   dragDepth = 0;
   dropZone.classList.remove("over");
   const [file] = e.dataTransfer.files;
-  if (!file) return;
+  if (file) openImportFile(file);
+});
+
+/** Put a dropped or chosen settings file in the import box, to check before importing. */
+async function openImportFile(file) {
   if (file.size > MAX_IMPORT_BYTES) return setStatus(`${file.name} is too large to be a settings file.`, "err");
   const text = await file.text();
   try {
@@ -1727,9 +1751,10 @@ dropZone.addEventListener("drop", async (e) => {
     return setStatus(`${file.name} isn't a JSON file.`, "err");
   }
   $("#json").value = text;
+  labelImportButton();
   $("#json").focus();
   setStatus(`Opened ${file.name}. Check it, then click Import from text.`, "ok");
-});
+}
 // A file dropped just outside the box shouldn't make Chrome open it in place of the settings page.
 window.addEventListener("dragover", (e) => { if (hasFiles(e)) e.preventDefault(); });
 window.addEventListener("drop", (e) => { if (hasFiles(e)) e.preventDefault(); });
@@ -1773,6 +1798,7 @@ for (const [selector, icon] of BUTTON_ICONS) {
     button.replaceChildren(buttonIcon(icon), label);
   });
 }
+labelImportButton(); // now that its label is a text node after the icon
 
 (async () => {
   const stored = await chrome.storage.sync.get(CONFIG_KEY);
