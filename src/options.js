@@ -1162,6 +1162,22 @@ function requestGitHubAccess() {
   return chrome.permissions.request(GITHUB_PERMISSION).catch(() => false);
 }
 
+/** Sync several files one after another, then say how it went, after done (e.g. "Imported"). */
+async function syncSources(sources, done) {
+  sources.forEach((source) => syncing.add(source.id));
+  renderSources();
+  const failed = [];
+  for (const source of sources) {
+    const entry = await syncSource(source);
+    syncing.delete(source.id);
+    if (entry.error) failed.push(source.repo);
+  }
+  cache = await loadCache();
+  render();
+  if (failed.length) setStatus(`${done}. ${plural(failed.length, "Shared links file")} didn't sync: ${failed.join(", ")}`, "err");
+  else setStatus(`${done}. Synced ${plural(sources.length, "Shared links file")}`, "ok");
+}
+
 /** Sync one file now. done, if given, is what happened first (e.g. "Token saved"), said before the result. */
 async function runSync(source, done = "") {
   syncing.add(source.id);
@@ -1680,14 +1696,20 @@ async function importJson(text, from) {
   try {
     const imported = importSettings(JSON.parse(text)); // checks the format before asking
     if (!confirm(`Replace all your groups, environments, variables and links with ${from}?`)) return;
+    // Its Shared links files sync straight away. Ask for GitHub access now, while this is still a
+    // click: Chrome only shows the prompt then.
+    const access = imported.sources.length ? requestGitHubAccess() : null;
     settings = imported;
     openLink = null;
     render();
     await saveNow(); // save first, so "Saved" doesn't replace the message below
     await forgetRemovedSources(settings);
+    [cache, tokens] = await Promise.all([loadCache(), loadTokens()]);
     $("#json").value = ""; // done with it; the button goes back to choosing a file
     labelImportButton();
-    setStatus("Imported", "ok");
+    if (!access) return setStatus("Imported", "ok");
+    if (!(await access)) return setStatus("Imported. Allow access to api.github.com to sync its Shared links.", "err");
+    await syncSources(settings.sources, "Imported");
   } catch (err) {
     setStatus(`Import failed: ${err.message}`, "err");
   }
