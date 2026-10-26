@@ -425,3 +425,19 @@ test("a failed sync says when the file last synced", () => {
   assert.equal(timeAgo(now - 5 * 60e3, now), "5 min ago");
   assert.match(timeAgo(now - 3 * 86400e3, now), /^on /);
 });
+
+// ---- Environments that open the same URL ----------------------------------------------------
+
+import { mergeSameUrl } from "../src/core.js";
+
+test("environments that open the same URL are merged, names joined with |", () => {
+  const cfg = normalizeConfig({ ...EXAMPLE, links: [{ key: "argocd", template: "argocd.{{DOMAIN}}", overrides: { production: "argocd.prod.io" } }] });
+  const merged = mergeSameUrl(search("argocd", cfg));
+  assert.deepEqual(merged.map((r) => [r.env.name, r.url]), [
+    ["DEV \u00a0|\u00a0 STAGING \u00a0|\u00a0 PREPROD", "https://argocd.example.com"],
+    ["PRODUCTION", "https://argocd.prod.io"],
+  ]);
+  assert.deepEqual(merged[0].envs.map((e) => e.id), ["dev", "staging", "preprod"]);
+  assert.equal(merged[0].env.id, "dev"); // the first keeps its id, for grouping tabs
+  assert.equal(search("argocd", cfg)[0].env.name, "DEV"); // the search results themselves are untouched
+});

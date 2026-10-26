@@ -58,7 +58,7 @@ Chrome only hands address-bar input to an extension after its keyword, so type t
 
 Words can come in any order. Link names come first, and several words can match parts of one name, so `api doc` finds `api-docs` or `API Docs`; links that match more of the words are listed first. A word that isn't part of a link's name narrows the list by environment (or by group), ignoring case, spaces and dashes, so `preprod` also finds `Pre-Prod` and `EU PREPROD`. A single word that names both a link and an environment, such as `dev` with a `devtools` link, lists the `devtools` link first and then every link in DEV.
 
-`Enter` opens the top suggestion; arrow down to pick another. `Alt+Enter` opens it in a new tab.
+`Enter` opens the top suggestion; arrow down to pick another. `Alt+Enter` opens it in a new tab. Environments whose link opens the same URL share a row, such as "DEV | STAGE", and a button in the toolbar list.
 
 ## Toolbar button
 

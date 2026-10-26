@@ -1,4 +1,6 @@
-import { DEFAULT_CONFIG, normalizeConfig, search, displayUrl, hasCredentials, syncProblems, describeSyncProblems } from "./core.js";
+import {
+  DEFAULT_CONFIG, normalizeConfig, search, displayUrl, hasCredentials, syncProblems, describeSyncProblems, mergeSameUrl,
+} from "./core.js";
 import { loadEffectiveConfig, loadCache } from "./shared.js";
 import { openLink } from "./open.js";
 
@@ -166,14 +168,15 @@ function render() {
       lastGroup = envs[0].group;
       list.append(el("li", { className: "group-heading" }, lastGroup.name));
     }
-    const chips = envs.map((r) =>
+    // Environments that open the same URL share a button ("DEV | STAGE"), like in the address bar.
+    const chips = mergeSameUrl(envs).map((r) =>
       item(
         el("a", {
           href: hasCredentials(r.url) ? "#" : r.url, // clicks open it; an href would show the password on hover
           title: r.missing.length ? `${displayUrl(r.url)}\nMissing: ${r.missing.join(", ")}` : displayUrl(r.url),
           className: r.missing.length ? "warn" : "",
         }, r.env.name),
-        (e) => open(r.url, e, r.env, r.group),
+        (e) => open(r.url, e, r.envs[0], r.group), // a shared button groups its tab under the first
         r.url
       )
     );

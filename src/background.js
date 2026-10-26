@@ -1,4 +1,4 @@
-import { DEFAULT_CONFIG, search, describe, environmentForUrl, syncProblems, describeSyncProblems } from "./core.js";
+import { DEFAULT_CONFIG, search, describe, environmentForUrl, syncProblems, describeSyncProblems, mergeSameUrl } from "./core.js";
 import { openLink } from "./open.js";
 import { CONFIG_KEY, loadEffectiveConfig, loadLocalConfig, loadCache, syncAll } from "./shared.js";
 
@@ -6,7 +6,20 @@ const MAX_SUGGESTIONS = 9;
 const SYNC_ALARM = "sync-shared-links";
 const SYNC_EVERY_MINUTES = 60;
 
-const loadConfig = loadEffectiveConfig;
+// The effective config, read once and kept in memory, so the address bar can answer a keystroke
+// straight away instead of waiting for storage. When the settings or a shared file change it's
+// read again; until that's done the copy in memory is used.
+let config = null;
+let configLoad = null;
+function loadConfig() {
+  configLoad ??= loadEffectiveConfig()
+    .then((loaded) => (config = loaded))
+    .catch((err) => {
+      configLoad = null; // try again next time
+      throw err;
+    });
+  return configLoad;
+}
 
 function scheduleSync() {
   chrome.alarms.create(SYNC_ALARM, { periodInMinutes: SYNC_EVERY_MINUTES });
@@ -23,7 +36,11 @@ async function showSyncProblems() {
   ]);
 }
 chrome.storage.onChanged.addListener((changes, area) => {
-  if ((area === "local" && changes.shared) || (area === "sync" && changes[CONFIG_KEY])) showSyncProblems();
+  if ((area === "local" && changes.shared) || (area === "sync" && changes[CONFIG_KEY])) {
+    configLoad = null;
+    loadConfig().catch(() => {}); // read it afresh now, so it's ready for the next keystroke
+    showSyncProblems();
+  }
 });
 showSyncProblems(); // each time the service worker starts
 
@@ -46,38 +63,43 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === SYNC_ALARM) syncAll();
 });
 
+const HINT = "Type a link or environment, e.g. <match>backoffice</match>, <match>prod</match> or <match>backoffice prod</match> [/path]";
+
 chrome.omnibox.onInputStarted.addListener(() => {
-  chrome.omnibox.setDefaultSuggestion({
-    description: "Type a link or environment, e.g. <match>backoffice</match>, <match>prod</match> or <match>backoffice prod</match> [/path]",
-  });
+  chrome.omnibox.setDefaultSuggestion({ description: HINT });
+  loadConfig().catch(() => {}); // usually in memory already; if not, start reading now
 });
 
+/**
+ * Answer one keystroke: the first match is the first row (what Enter opens), the rest follow.
+ * The rows are sent only once Chrome has stored the first row. Chrome draws the first row from the
+ * stored default suggestion, so sending the rows first could show them under the previous
+ * keystroke's first row.
+ */
+async function answer(text, config, suggest, input) {
+  // One row per URL: Chrome would quietly drop a second row with the same URL ("DEV | STAGE" instead).
+  const rows = mergeSameUrl(search(text, config)).slice(0, MAX_SUGGESTIONS);
+  // Name the link, and its group, when the rows don't all share them.
+  const multipleLinks = new Set(rows.map((r) => r.link.key)).size > 1;
+  const multipleGroups = new Set(rows.map((r) => r.group)).size > 1;
+  const [first, ...rest] = rows;
+  const description = first ? describe(first, multipleLinks, multipleGroups)
+    : text.trim() ? "No matching link. Press Enter to open settings." : HINT;
+  await chrome.omnibox.setDefaultSuggestion({ description });
+  if (input !== latestInput) return; // more has been typed meanwhile
+  suggest(rest.map((r) => ({ content: r.url, description: describe(r, multipleLinks, multipleGroups), deletable: false })));
+}
+
+// Each keystroke is answered at once from the config in memory. Only before it has been read does a
+// keystroke wait, and then only the latest one answers: an earlier one finishing later would
+// otherwise replace its rows with those for the shorter text.
+let latestInput = 0;
+
 chrome.omnibox.onInputChanged.addListener(async (text, suggest) => {
-  const config = await loadConfig();
-  const results = search(text, config);
-  const multipleLinks = new Set(results.map((r) => r.link.key)).size > 1;
-  const multipleGroups = new Set(results.map((r) => r.group)).size > 1;
-
-  if (!results.length) {
-    chrome.omnibox.setDefaultSuggestion({
-      description: text.trim()
-        ? "No matching link. Press Enter to open settings."
-        : "Type a link or environment, e.g. <match>backoffice</match>, <match>prod</match> or <match>backoffice prod</match> [/path]",
-    });
-    suggest([]);
-    return;
-  }
-
-  // The first result becomes the default (what Enter opens); the rest are listed below it.
-  const [first, ...rest] = results;
-  chrome.omnibox.setDefaultSuggestion({ description: describe(first, multipleLinks, multipleGroups) });
-  suggest(
-    rest.slice(0, MAX_SUGGESTIONS - 1).map((r) => ({
-      content: r.url,
-      description: describe(r, multipleLinks, multipleGroups),
-      deletable: false,
-    }))
-  );
+  const input = ++latestInput;
+  if (config) return answer(text, config, suggest, input);
+  const loaded = await loadConfig();
+  if (input === latestInput) await answer(text, loaded, suggest, input);
 });
 
 chrome.omnibox.onInputEntered.addListener(async (text, disposition) => {

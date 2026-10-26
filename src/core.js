@@ -603,6 +603,28 @@ function matchLinks(term, filters, path, config) {
   );
 }
 
+/**
+ * One result per URL: environments that open the same page share it, with their names joined
+ * ("DEV  |  STAGE") and all of them in envs. The first keeps its place and its env for grouping tabs.
+ */
+// Two spaces each side of the "|". One of each pair is non-breaking, so HTML doesn't collapse them.
+const ENV_JOIN = " \u00a0|\u00a0 ";
+
+export function mergeSameUrl(results) {
+  const byUrl = new Map();
+  for (const result of results) {
+    const merged = byUrl.get(result.url);
+    if (merged) {
+      merged.envs.push(result.env);
+      merged.env = { ...merged.env, name: `${merged.env.name}${ENV_JOIN}${result.env.name}` };
+      merged.missing = [...new Set([...merged.missing, ...result.missing])];
+    } else {
+      byUrl.set(result.url, { ...result, envs: [result.env] });
+    }
+  }
+  return [...byUrl.values()].map(({ env, envs, ...rest }) => ({ ...rest, env: { ...envs[0], name: env.name }, envs }));
+}
+
 /** Escape text for chrome.omnibox suggestion descriptions (XML). */
 export function escapeXml(text) {
   return String(text)
