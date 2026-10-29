@@ -1,7 +1,7 @@
 import {
   DEFAULT_CONFIG, DEFAULT_SHARED_PATH, normalizeConfig, normalizeSource, expandLink, displayUrl, slug,
   resolveConfig, parseGitHubLocation, buildSharedFile, isEmptyConfig, normalizeGroup, sourceGroupId, isExcluded, variablesUsed, toVariableName, renameInLink, exportSettings, importSettings, hasCredentials,
-  syncProblems, describeSyncProblems, timeAgo,
+  syncProblems, describeSyncProblems, timeAgo, syncSeverity,
 } from "./core.js";
 import { GROUP_PERMISSION } from "./open.js";
 import {
@@ -197,9 +197,11 @@ const syncProblemText = (group) => describeSyncProblems(groupSyncProblems(group)
 function syncWarning(group) {
   const problems = groupSyncProblems(group);
   if (!problems.length) return null;
-  // A red "!", like the badge on the toolbar icon.
-  return el("span", { class: "sync-error", title: describeSyncProblems(problems), role: "img",
-    "aria-label": `${plural(problems.length, "Shared links file")} didn't sync` }, "!");
+  // A "!" like the badge on the toolbar icon: red when one needs fixing, orange when they're all
+  // likely to clear up by themselves.
+  const temporary = syncSeverity(problems) === "warning";
+  return el("span", { class: `sync-error${temporary ? " temporary" : ""}`, title: describeSyncProblems(problems), role: "img",
+    "aria-label": `${plural(problems.length, "Shared links file")} ${temporary ? "couldn't sync just now" : "didn't sync"}` }, "!");
 }
 
 /** Scroll to the group's first Shared links file that didn't sync, and briefly highlight it. */
@@ -1147,7 +1149,7 @@ function sourceStatus(source) {
     : "";
   if (entry.error) {
     return el("span", {},
-      el("span", { class: "warn" }, entry.error),
+      el("span", { class: entry.temporary ? "caution" : "warn" }, entry.error),
       entry.data
         ? el("span", { class: "muted" },
           ` Still using the last copy${entry.okAt ? `, from ${timeAgo(entry.okAt)}` : ""} (${summary}).`)

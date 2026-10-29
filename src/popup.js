@@ -1,5 +1,6 @@
 import {
   DEFAULT_CONFIG, normalizeConfig, search, displayUrl, hasCredentials, syncProblems, describeSyncProblems, mergeSameUrl,
+  syncSeverity,
 } from "./core.js";
 import { loadEffectiveConfig, loadCache } from "./shared.js";
 import { openLink } from "./open.js";
@@ -236,12 +237,16 @@ let problems = [];
  */
 function syncBanner() {
   const [first] = problems;
+  // Orange when every failure is likely to clear up by itself, like the toolbar icon's badge.
+  const temporary = syncSeverity(problems) === "warning";
+  const failed = temporary ? "couldn't sync just now" : "didn't sync";
   const text = problems.length === 1
-    ? `Shared links from ${first.source.repo} didn't sync.`
-    : `${problems.length} Shared links files didn't sync.`;
-  const banner = el("li", { className: "sync-problem", title: describeSyncProblems(problems) },
+    ? `Shared links from ${first.source.repo} ${failed}.`
+    : `${problems.length} Shared links files ${failed}.`;
+  const banner = el("li", { className: `sync-problem${temporary ? " temporary" : ""}`, title: describeSyncProblems(problems) },
     el("span", { className: "bang", ariaHidden: "true" }, "!"),
-    el("span", { className: "text" }, text, " ", el("a", { href: "#", className: "fix" }, "Show")));
+    el("span", { className: "text" }, text), // shortened with "…" if need be; Show always stays in view
+    el("a", { href: "#", className: "fix" }, "Show"));
   banner.addEventListener("click", (e) => {
     e.preventDefault();
     chrome.tabs.create({ url: chrome.runtime.getURL("src/options.html#sync-problem") });

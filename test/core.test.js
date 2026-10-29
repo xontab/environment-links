@@ -405,7 +405,7 @@ test("several words can match one link name, and the rest narrow it", () => {
 
 // ---- Sync problems ---------------------------------------------------------------------------
 
-import { syncProblems, describeSyncProblems, timeAgo } from "../src/core.js";
+import { syncProblems, describeSyncProblems, timeAgo, syncSeverity } from "../src/core.js";
 
 test("failed syncs are listed with the group each source feeds", () => {
   const [pay, any] = GROUPS.sources;
@@ -440,4 +440,12 @@ test("environments that open the same URL are merged, names joined with |", () =
   assert.deepEqual(merged[0].envs.map((e) => e.id), ["dev", "staging", "preprod"]);
   assert.equal(merged[0].env.id, "dev"); // the first keeps its id, for grouping tabs
   assert.equal(search("argocd", cfg)[0].env.name, "DEV"); // the search results themselves are untouched
+});
+
+test("sync problems are a warning when they'll likely clear up, and an error otherwise", () => {
+  const [pay, any] = GROUPS.sources;
+  const temporary = { [pay.id]: { error: "Couldn't reach GitHub", temporary: true } };
+  assert.equal(syncSeverity(syncProblems(GROUPS, temporary)), "warning");
+  assert.equal(syncSeverity(syncProblems(GROUPS, { ...temporary, [any.id]: { error: "File not found" } })), "error");
+  assert.equal(syncSeverity([]), null);
 });

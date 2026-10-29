@@ -148,8 +148,21 @@ export function syncProblems(config, cache = {}) {
       group: config.groups.find((g) => g.id === sourceGroupId(config, source)),
       error: cache[source.id].error,
       okAt: cache[source.id].okAt, // when it last synced, if it ever has
+      temporary: cache[source.id].temporary === true, // likely to clear up by itself, e.g. offline
     }));
 }
+
+/**
+ * How serious some sync problems are, for the colour of the "!": "error" (red) if any needs a fix,
+ * "warning" (orange) if they're all likely to clear up by themselves, or null for none.
+ */
+export function syncSeverity(problems) {
+  if (!problems.length) return null;
+  return problems.every((p) => p.temporary) ? "warning" : "error";
+}
+
+/** The "!" badge colours, the same on the toolbar icon, the group tabs and the toolbar list. */
+export const SYNC_COLORS = { error: "#d93025", warning: "#e8710a" };
 
 /** "just now", "5 min ago", "3 h ago", or "on 21/10/2026" for anything older than a day. */
 export function timeAgo(ms, now = Date.now()) {

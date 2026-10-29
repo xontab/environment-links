@@ -83,6 +83,31 @@ test("remembers when a file last synced, through failures and unchanged replies"
   assert.equal((await syncSource(source)).okAt, 1000);
 });
 
+test("failures likely to clear up by themselves are marked temporary", async () => {
+  const kind = async (respond) => {
+    reply = respond;
+    const entry = await syncSource(source);
+    return entry.temporary ? "temporary" : "lasting";
+  };
+  const offline = () => { throw new TypeError("Failed to fetch"); };
+  assert.equal(await kind(offline), "temporary");
+  assert.match((await syncSource(source)).error, /Couldn't reach GitHub/);
+  assert.equal(await kind(() => new Response("", { status: 502, statusText: "Bad Gateway" })), "temporary");
+  assert.equal(await kind(() => new Response("", { status: 403, headers: { "x-ratelimit-remaining": "0" } })), "temporary");
+  assert.equal(await kind(() => new Response("", { status: 429 })), "temporary");
+  // These need a fix: the file, the token, or the file's contents.
+  assert.equal(await kind(() => new Response("{}", { status: 404, statusText: "Not Found" })), "lasting");
+  assert.equal(await kind(() => new Response("", { status: 401 })), "lasting");
+  assert.equal(await kind(() => new Response("", { status: 403 })), "lasting");
+  assert.equal(await kind(() => new Response("not json", { status: 200 })), "lasting");
+  // A good sync clears it.
+  await kind(offline);
+  reply = () => new Response(JSON.stringify(FILE), { status: 200 });
+  const good = await syncSource(source);
+  assert.equal(good.error, null);
+  assert.equal("temporary" in good, false);
+});
+
 test("without GitHub access it doesn't fetch", async () => {
   granted = false;
   const entry = await syncSource(source);

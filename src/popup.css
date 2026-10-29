@@ -74,8 +74,12 @@ li.sync-problem .bang {
   flex: none; display: inline-grid; place-items: center; width: 16px; height: 16px; border-radius: 50%;
   background: #d93025; color: #fff; font: 800 11px/1 system-ui, sans-serif;
 }
+#list li.sync-problem.temporary {
+  border-color: color-mix(in srgb, var(--caution) 40%, transparent); background: color-mix(in srgb, var(--caution) 9%, transparent);
+}
+li.sync-problem.temporary .bang { background: #e8710a; }
 li.sync-problem .text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-li.sync-problem .fix { color: var(--accent); font-weight: 600; }
+li.sync-problem .fix { flex: none; margin-left: auto; color: var(--accent); font-weight: 600; }
 /* Between groups: a gap and a stronger line than the one between links. */
 #list li.group-heading:not(:first-child) {
   margin-top: 8px; padding-top: 14px; border-top: 2px solid var(--border);

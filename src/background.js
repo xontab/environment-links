@@ -1,4 +1,6 @@
-import { DEFAULT_CONFIG, search, describe, environmentForUrl, syncProblems, describeSyncProblems, mergeSameUrl } from "./core.js";
+import {
+  DEFAULT_CONFIG, search, describe, environmentForUrl, syncProblems, describeSyncProblems, mergeSameUrl, syncSeverity, SYNC_COLORS,
+} from "./core.js";
 import { openLink } from "./open.js";
 import { CONFIG_KEY, loadEffectiveConfig, loadLocalConfig, loadCache, syncAll } from "./shared.js";
 
@@ -25,13 +27,15 @@ function scheduleSync() {
   chrome.alarms.create(SYNC_ALARM, { periodInMinutes: SYNC_EVERY_MINUTES });
 }
 
-// A red "!" on the toolbar icon while any Shared links file fails to sync; its tooltip says which.
+// A "!" on the toolbar icon while any Shared links file fails to sync: red when one needs fixing,
+// orange when they're all likely to clear up by themselves (like no network). Its tooltip says which.
 async function showSyncProblems() {
   const [config, cache] = await Promise.all([loadLocalConfig(), loadCache()]);
   const problems = syncProblems(config, cache);
+  const severity = syncSeverity(problems); // orange while every failure is likely to clear up by itself
   await Promise.all([
     chrome.action.setBadgeText({ text: problems.length ? "!" : "" }),
-    chrome.action.setBadgeBackgroundColor({ color: "#d93025" }),
+    chrome.action.setBadgeBackgroundColor({ color: SYNC_COLORS[severity] || SYNC_COLORS.error }),
     chrome.action.setTitle({ title: problems.length ? `Environment Links\n${describeSyncProblems(problems)}` : "Environment Links" }),
   ]);
 }

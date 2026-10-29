@@ -3,8 +3,9 @@
 //
 // Storage layout:
 //   sync  "config"  the user's own settings, including config.sources (no secrets)
-//   local "shared"  { [sourceId]: { data, etag, syncedAt, okAt, error } }  the last fetched copy of each file
-//                   (syncedAt: the last attempt; okAt: the last one that worked)
+//   local "shared"  { [sourceId]: { data, etag, syncedAt, okAt, error, temporary } }  the last fetched copy of each file
+//                   (syncedAt: the last attempt; okAt: the last one that worked; temporary: the error
+//                   is likely to clear up by itself, like no network, rather than needing a fix)
 //   local "tokens"  { [sourceId]: token }  GitHub tokens; kept on this device, never synced or exported
 
 import { DEFAULT_CONFIG, normalizeConfig, parseSharedFile, resolveConfig } from "./core.js";
@@ -60,6 +61,19 @@ function contentsUrl({ repo, branch, path }) {
   return `https://api.github.com/repos/${repo}/contents/${encodedPath}${ref}`;
 }
 
+/** An error that's likely to clear up by itself: the next sync may well work. */
+const temporary = (message) => Object.assign(new Error(message), { temporary: true });
+
+/**
+ * Whether a failed response is likely to clear up by itself: GitHub having a problem (5xx), a
+ * timeout, or the rate limit, which resets. Not finding the file or being refused needs a fix.
+ */
+function isTemporary(response) {
+  if (response.status >= 500 || response.status === 408) return true;
+  return (response.status === 403 || response.status === 429) &&
+    (response.status === 429 || response.headers.get("x-ratelimit-remaining") === "0");
+}
+
 async function describeFailure(response, hasToken) {
   if (response.status === 404) {
     return hasToken
@@ -87,6 +101,7 @@ export async function syncSource(source) {
   // good sync if no error was recorded with it.
   const okAt = previous.okAt ?? (previous.data && !previous.error ? previous.syncedAt : undefined);
   const entry = { ...previous, syncedAt: Date.now(), ...(okAt ? { okAt } : {}), error: null };
+  delete entry.temporary;
 
   try {
     if (!(await chrome.permissions.contains(GITHUB_PERMISSION))) {
@@ -96,15 +111,25 @@ export async function syncSource(source) {
     if (token) headers.Authorization = `Bearer ${token}`;
     if (previous.etag && previous.data) headers["If-None-Match"] = previous.etag;
 
-    const response = await fetch(contentsUrl(source), { headers, cache: "no-store" });
+    let response;
+    try {
+      response = await fetch(contentsUrl(source), { headers, cache: "no-store" });
+    } catch {
+      // fetch only throws when there's no answer at all: offline, DNS, a dropped connection.
+      throw temporary("Couldn't reach GitHub. Check your connection; it tries again within the hour.");
+    }
     if (response.status !== 304) {
-      if (!response.ok) throw new Error(await describeFailure(response, Boolean(token)));
+      if (!response.ok) {
+        const message = await describeFailure(response, Boolean(token));
+        throw isTemporary(response) ? temporary(message) : new Error(message);
+      }
       entry.data = parseSharedFile(await response.text());
       entry.etag = response.headers.get("etag");
     }
     entry.okAt = entry.syncedAt; // a 304 means the copy we have is still the latest, so that counts too
   } catch (err) {
     entry.error = err.message || String(err);
+    if (err.temporary) entry.temporary = true;
   }
 
   // Re-read before writing so syncs of different sources don't overwrite each other.

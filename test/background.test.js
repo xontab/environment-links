@@ -16,6 +16,7 @@ const area = (store) => ({
   set: async (items) => Object.assign(store, structuredClone(items)),
 });
 let defaults = [];
+const badge = {}; // the toolbar icon's badge
 let order = []; // what reached Chrome, in order
 let storeDelay = 0; // how long Chrome takes to store the first row
 globalThis.chrome = {
@@ -30,7 +31,11 @@ globalThis.chrome = {
     },
   },
   storage: { sync: area(stores.sync), local: area(stores.local), onChanged: on("storage") },
-  action: { setBadgeText: async () => {}, setBadgeBackgroundColor: async () => {}, setTitle: async () => {} },
+  action: {
+    setBadgeText: async (o) => (badge.text = o.text),
+    setBadgeBackgroundColor: async (o) => (badge.color = o.color),
+    setTitle: async (o) => (badge.title = o.title),
+  },
   permissions: { contains: async () => false },
 };
 
@@ -135,4 +140,23 @@ test("settings are read once and kept until they change", async () => {
   listeners.storage({ config: { newValue: stores.sync.config } }, "sync");
   await new Promise((r) => setTimeout(r, 10)); // it's read again in the background
   assert.equal((await type("kib")).default, "<match>DEV</match> - <url>k.dev.io</url>");
+});
+
+test("the toolbar icon's ! is orange while every failure is temporary, and red once one isn't", async () => {
+  stores.sync.config = { ...CONFIG, sources: [{ repo: "acme/a" }, { repo: "acme/b" }] };
+  const changed = async (shared) => {
+    stores.local.shared = shared;
+    listeners.storage({ shared: { newValue: shared } }, "local");
+    await new Promise((r) => setTimeout(r, 20));
+  };
+  await changed({ "acme-a-environment-links-json": { error: "Couldn't reach GitHub", temporary: true } });
+  assert.deepEqual([badge.text, badge.color], ["!", "#e8710a"]);
+  await changed({ "acme-a-environment-links-json": { error: "Couldn't reach GitHub", temporary: true },
+    "acme-b-environment-links-json": { error: "File not found" } });
+  assert.deepEqual([badge.text, badge.color], ["!", "#d93025"]);
+  await changed({});
+  assert.equal(badge.text, "");
+  stores.sync.config = CONFIG;
+  listeners.storage({ config: { newValue: CONFIG } }, "sync");
+  await new Promise((r) => setTimeout(r, 10));
 });

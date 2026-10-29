@@ -7,6 +7,7 @@
   --accent: #2563eb;
   --accent-text: #ffffff;
   --danger: #c2283a;
+  --caution: #b45309; /* a problem likely to clear up by itself, e.g. no network */
   --ok: #18794e;
   --code-bg: #eef1f5;
   color-scheme: light;
@@ -21,6 +22,7 @@
     --accent: #5b8def;
     --accent-text: #0d1117;
     --danger: #f0717f;
+    --caution: #f59e0b;
     --ok: #4cc38a;
     --code-bg: #2a2e35;
     color-scheme: dark;
@@ -583,12 +585,15 @@ h2 .help-link { margin-left: -2px; } /* right after the heading's text */
   background: var(--code-bg); color: var(--muted);
 }
 .group-tab.selected .count { background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); }
-/* Before the count when one of the group's Shared links files didn't sync: a red "!", the same as
-   the badge on the toolbar icon (so the same red in both themes). */
+/* Before the count when one of the group's Shared links files didn't sync: a "!", the same as the
+   badge on the toolbar icon (so the same colours in both themes, SYNC_COLORS in core.js). Red when
+   one needs fixing, orange when they're all likely to clear up by themselves. */
 .group-tab .sync-error {
   display: inline-grid; place-items: center; width: 16px; height: 16px; margin-right: -2px; border-radius: 50%;
   background: #d93025; color: #fff; font: 800 11px/1 system-ui, sans-serif; cursor: pointer;
 }
+.group-tab .sync-error.temporary { background: #e8710a; }
+.source-status .caution { color: var(--caution); }
 /* The ⋯ takes the link count's place while the tab is hovered, reached with the keyboard or has its
    menu open, so it needs no room of its own: centred over the count, which is hidden meanwhile. */
 .group-tab .more {
