@@ -2,7 +2,7 @@ import {
   DEFAULT_CONFIG, normalizeConfig, search, displayUrl, hasCredentials, syncProblems, describeSyncProblems, mergeSameUrl,
   syncSeverity,
 } from "./core.js";
-import { loadEffectiveConfig, loadCache } from "./shared.js";
+import { loadEffectiveConfig, loadCache, syncSource } from "./shared.js";
 import { openLink } from "./open.js";
 
 const list = document.querySelector("#list");
@@ -243,9 +243,18 @@ function syncBanner() {
   const text = problems.length === 1
     ? `Shared links from ${first.source.repo} ${failed}.`
     : `${problems.length} Shared links files ${failed}.`;
+  // A failure likely to clear up by itself (like no network) can be retried right here.
+  const retry = problems.some((p) => p.temporary)
+    ? el("button", { type: "button", className: "retry", title: "Try syncing again now" }, "Retry")
+    : null;
+  retry?.addEventListener("click", (e) => {
+    e.stopPropagation(); // not the banner's own click, which opens the settings
+    retrySync(retry);
+  });
   const banner = el("li", { className: `sync-problem${temporary ? " temporary" : ""}`, title: describeSyncProblems(problems) },
     el("span", { className: "bang", ariaHidden: "true" }, "!"),
-    el("span", { className: "text" }, text), // shortened with "…" if need be; Show always stays in view
+    el("span", { className: "text" }, text), // shortened with "…" if need be; Retry and Show stay in view
+    ...(retry ? [retry] : []),
     el("a", { href: "#", className: "fix" }, "Show"));
   banner.addEventListener("click", (e) => {
     e.preventDefault();
@@ -253,6 +262,17 @@ function syncBanner() {
     window.close();
   });
   return banner;
+}
+
+/** Sync the files that failed, then show the list again: without the note if they all worked. */
+async function retrySync(button) {
+  button.disabled = true;
+  button.textContent = "Retrying…";
+  for (const { source } of problems) await syncSource(source);
+  const [effective, cache] = await Promise.all([loadEffectiveConfig(), loadCache()]);
+  config = effective; // the files that synced may have new links
+  problems = syncProblems(config, cache);
+  render();
 }
 
 // "Open this list with ⌘⇧E", when a shortcut is set, so people discover it.

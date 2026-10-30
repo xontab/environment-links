@@ -79,7 +79,9 @@ li.sync-problem .bang {
 }
 li.sync-problem.temporary .bang { background: #e8710a; }
 li.sync-problem .text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+li.sync-problem .retry { flex: none; margin-left: auto; padding: 1px 9px; border-radius: 999px; font-size: 11px; font-weight: 600; }
 li.sync-problem .fix { flex: none; margin-left: auto; color: var(--accent); font-weight: 600; }
+li.sync-problem .retry + .fix { margin-left: 0; }
 /* Between groups: a gap and a stronger line than the one between links. */
 #list li.group-heading:not(:first-child) {
   margin-top: 8px; padding-top: 14px; border-top: 2px solid var(--border);
