@@ -83,6 +83,17 @@ test("the address bar lists the latest text's matches, even when an earlier keys
   assert.deepEqual(shown.urls, []); // only PREPROD matches "pre", and it's the first row
 });
 
+test("typing starting again doesn't replace the first match with the hint", async () => {
+  // Opera reports the start of typing again while the user types ("e ba", answered, then started
+  // again), and a hint set then used to win. Only the answers set the first row now.
+  listeners.started();
+  await type("backoffice");
+  listeners.started();
+  await new Promise((r) => setTimeout(r, 10));
+  assert.equal(defaults.at(-1), "<match>DEV</match> - <url>bo.dev.io</url>");
+  assert.equal(defaults.filter((d) => d.startsWith("Type a link")).length, 0);
+});
+
 test("the first match is the first row, and the rest follow", async () => {
   const shown = await type("backoffice");
   assert.equal(shown.default, "<match>DEV</match> - <url>bo.dev.io</url>");

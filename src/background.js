@@ -69,8 +69,10 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 
 const HINT = "Type a link or environment, e.g. <match>backoffice</match>, <match>prod</match> or <match>backoffice prod</match> [/path]";
 
+// Each keystroke's answer sets the first row itself; the start of typing doesn't. A hint set then
+// could land after an answer and replace its first match: Opera reports the start of typing again
+// while the user types, and Chrome showed the same lag.
 chrome.omnibox.onInputStarted.addListener(() => {
-  chrome.omnibox.setDefaultSuggestion({ description: HINT });
   loadConfig().catch(() => {}); // usually in memory already; if not, start reading now
 });
 
